@@ -1,0 +1,10 @@
+.local/
+bin/
+.env
+*.log
+coverage.out
+
+# Earlier Kotlin experiment; kept locally, unrelated to SeatFlow.
+/Main.kt
+/app.jar
+/out/

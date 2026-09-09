@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="ru">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SeatFlow — билеты</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      color: #e9edf4;
+      background: #10131a;
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+    }
+    main {
+      max-width: 1060px;
+      margin: auto;
+      padding: 40px 24px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #303745;
+      padding-bottom: 24px;
+    }
+    header span,
+    .muted {
+      color: #aab3c5;
+    }
+    h1 {
+      font-size: 32px;
+      letter-spacing: -1px;
+      margin: 0;
+    }
+    h2 {
+      font-size: 21px;
+    }
+    p {
+      line-height: 1.6;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 28px;
+    }
+    .card {
+      background: #191e28;
+      border: 1px solid #303745;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 18px;
+    }
+    button,
+    select {
+      font: inherit;
+      border-radius: 8px;
+      padding: 11px 14px;
+      border: 1px solid #495367;
+      background: #242c3b;
+      color: inherit;
+    }
+    button {
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) {
+      border-color: #b8ed8b;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .primary {
+      background: #b8ed8b;
+      color: #172410;
+      border: 0;
+      font-weight: 650;
+    }
+    select {
+      width: 100%;
+    }
+    .seats {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 7px;
+      margin: 22px 0;
+    }
+    .seat {
+      padding: 12px 0;
+    }
+    .seat.selected {
+      background: #b8ed8b;
+      color: #172410;
+    }
+    .stage {
+      border-top: 3px solid #566176;
+      border-radius: 50%;
+      text-align: center;
+      padding-top: 10px;
+      margin: 24px 0;
+      color: #aab3c5;
+      font-size: 12px;
+      letter-spacing: 3px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-block;
+      background: #303d2b;
+      color: #b8ed8b;
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+    #notice {
+      min-height: 28px;
+      color: #f3cb86;
+      margin-top: 20px;
+      overflow-wrap: anywhere;
+    }
+    code {
+      overflow-wrap: anywhere;
+      font-size: 12px;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    dt {
+      color: #aab3c5;
+    }
+    dd {
+      margin: 0;
+      text-align: right;
+    }
+    footer {
+      font-size: 13px;
+      color: #8f9bb0;
+      margin-top: 24px;
+    }
+    @media (max-width: 760px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      header {
+        align-items: start;
+        gap: 16px;
+      }
+      header span {
+        font-size: 12px;
+      }
+      .card {
+        padding: 18px;
+      }
+    }
+  </style>
+  <main>
+    <header>
+      <h1>SeatFlow<span style="color: #b8ed8b">.</span></h1>
+      <span>Билеты на события<br />Учебный проект</span>
+    </header>
+    <p class="muted">
+      Выберите событие и место. Бронь даст время на оформление покупки.
+    </p>
+    <div class="layout">
+      <section class="card">
+        <h2>Куда отправимся?</h2>
+        <label for="event" class="muted">Мероприятие</label
+        ><select id="event" style="margin-top: 8px"></select>
+        <p id="details" class="muted"></p>
+        <div class="stage">СЦЕНА</div>
+        <div class="seats" id="seats" aria-label="Выбор места"></div>
+        <p class="muted" id="availability"></p>
+        <button class="primary" id="reserve" disabled>
+          Забронировать место
+        </button>
+      </section>
+      <section>
+        <div class="card">
+          <span class="tag">ВАША БРОНЬ</span>
+          <h2 id="booking-title">Пока нет билета</h2>
+          <div id="booking">
+            <p class="muted">
+              Выберите свободное место слева. Здесь появятся детали брони и
+              время до её истечения.
+            </p>
+          </div>
+          <div class="actions">
+            <button class="primary" id="pay" hidden>Тестовая оплата</button
+            ><button id="decline" hidden>Платёж отклонён</button
+            ><button id="cancel" hidden>Отменить</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Попробуйте сценарии</h2>
+          <p class="muted">
+            Откройте страницу в двух вкладках и попробуйте занять одно место.
+            Проверьте отмену, отказ оплаты и повторное подтверждение.
+          </p>
+          <p class="muted">
+            Оплата имитируется: банковская карта не нужна, деньги не
+            списываются.
+          </p>
+        </div>
+      </section>
+    </div>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <footer>
+      Демо без регистрации. Сохраните ID брони для повторного обращения через
+      API.
+    </footer>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let events = [],
+      selected = null,
+      current = null,
+      busy = false,
+      pending = null;
+    async function api(path, options = {}) {
+      const r = await fetch("/api" + path, {
+        ...options,
+        headers: { "Content-Type": "application/json", ...options.headers },
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        const e = new Error(data.error || "Ошибка сервера");
+        e.status = r.status;
+        throw e;
+      }
+      return data;
+    }
+    function note(text) {
+      $("notice").textContent = text;
+    }
+    function controls() {
+      const active = current?.status === "RESERVED";
+      for (const id of ["pay", "decline", "cancel"]) {
+        $(id).hidden = !active;
+        $(id).disabled = busy;
+      }
+      for (const seat of $("seats").children)
+        seat.disabled = busy || seat.dataset.available !== "true";
+      $("event").disabled = busy;
+      $("reserve").disabled = busy || selected === null || active;
+    }
+    async function run(fn, quiet = false) {
+      if (busy) return;
+      busy = true;
+      controls();
+      if (!quiet) note("");
+      try {
+        await fn();
+      } catch (e) {
+        note(e.message);
+      } finally {
+        busy = false;
+        controls();
+      }
+    }
+    async function loadSeats() {
+      const eventID = $("event").value;
+      if (!eventID) return;
+      const data = await api("/events/" + eventID + "/seats");
+      if ($("event").value !== eventID) return;
+      const free = new Set(data.available_seat_ids.map(Number));
+      if (!free.has(selected)) selected = null;
+      const area = $("seats");
+      area.replaceChildren();
+      for (let n = 1; n <= 32; n++) {
+        const b = document.createElement("button");
+        b.className = "seat" + (selected === n ? " selected" : "");
+        b.textContent = n;
+        b.dataset.available = String(free.has(n));
+        b.disabled = !free.has(n);
+        b.setAttribute(
+          "aria-label",
+          "Место " + n + (free.has(n) ? ", свободно" : ", занято"),
+        );
+        b.setAttribute("aria-pressed", String(n === selected));
+        b.onclick = () => {
+          if (busy) return;
+          selected = n;
+          pending = null;
+          for (const el of area.children) {
+            el.classList.toggle("selected", el === b);
+            el.setAttribute("aria-pressed", String(el === b));
+          }
+          controls();
+        };
+        area.append(b);
+      }
+      $("availability").textContent = `Свободно ${free.size} из 32 мест`;
+      controls();
+    }
+    function render() {
+      if (!current) return;
+      const names = {
+        RESERVED: "Место забронировано",
+        SOLD: "Билет ваш!",
+        CANCELLED: "Бронь отменена",
+        EXPIRED: "Время брони истекло",
+      };
+      $("booking-title").textContent = names[current.status] || current.status;
+      const box = $("booking");
+      box.replaceChildren();
+      const dl = document.createElement("dl");
+      for (const [key, value] of [
+        ["Место", current.seat_id],
+        [
+          "Стоимость",
+          new Intl.NumberFormat("ru-RU", {
+            style: "currency",
+            currency: current.currency,
+          }).format(Number(current.price_minor) / 100),
+        ],
+        ["Статус", current.status],
+      ]) {
+        const dt = document.createElement("dt"),
+          dd = document.createElement("dd");
+        dt.textContent = key;
+        dd.textContent = value;
+        dl.append(dt, dd);
+      }
+      box.append(dl);
+      const timer = document.createElement("p");
+      timer.id = "timer";
+      timer.className = "muted";
+      box.append(timer);
+      const code = document.createElement("code");
+      code.textContent = current.id;
+      box.append(code);
+      controls();
+      tick();
+    }
+    function tick() {
+      if (current?.status === "RESERVED" && $("timer")) {
+        const secs = Math.max(
+          0,
+          Math.ceil((Date.parse(current.expires_at) - Date.now()) / 1000),
+        );
+        $("timer").textContent =
+          `До истечения: ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+      }
+    }
+    $("event").onchange = () =>
+      run(async () => {
+        selected = null;
+        pending = null;
+        const e = events.find((e) => e.id === $("event").value);
+        $("details").textContent =
+          e.venue + " · " + new Date(e.starts_at).toLocaleString("ru-RU");
+        await loadSeats();
+      });
+    $("reserve").onclick = () =>
+      run(async () => {
+        const body = { event_id: Number($("event").value), seat_id: selected };
+        pending ??= { key: crypto.randomUUID(), body };
+        try {
+          current = await api("/bookings", {
+            method: "POST",
+            headers: { "Idempotency-Key": pending.key },
+            body: JSON.stringify(pending.body),
+          });
+          pending = null;
+          sessionStorage.setItem("booking-id", current.id);
+          render();
+          await loadSeats();
+        } catch (e) {
+          if (e.status && e.status < 500) pending = null;
+          throw e;
+        }
+      });
+    for (const [id, result] of [
+      ["pay", "success"],
+      ["decline", "fail"],
+    ])
+      $(id).onclick = () =>
+        run(async () => {
+          current = await api("/bookings/" + current.id + "/checkout", {
+            method: "POST",
+            body: JSON.stringify({ payment_result: result }),
+          });
+          render();
+          await loadSeats();
+        });
+    $("cancel").onclick = () =>
+      run(async () => {
+        current = await api("/bookings/" + current.id, { method: "DELETE" });
+        render();
+        await loadSeats();
+      });
+    setInterval(tick, 1000);
+    setInterval(() => {
+      if (busy || !events.length) return;
+      run(async () => {
+        if (current) {
+          current = await api("/bookings/" + current.id);
+          render();
+        }
+        await loadSeats();
+      }, true);
+    }, 5000);
+    run(async () => {
+      events = (await api("/events")).events;
+      for (const e of events) {
+        const option = document.createElement("option");
+        option.value = e.id;
+        option.textContent = e.title;
+        $("event").append(option);
+      }
+      if (events.length) {
+        $("details").textContent =
+          events[0].venue +
+          " · " +
+          new Date(events[0].starts_at).toLocaleString("ru-RU");
+        await loadSeats();
+      } else note("Нет доступных мероприятий");
+      const saved = sessionStorage.getItem("booking-id");
+      if (saved) {
+        try {
+          current = await api("/bookings/" + saved);
+          render();
+        } catch (e) {
+          if (e.status === 404) sessionStorage.removeItem("booking-id");
+          else throw e;
+        }
+      }
+    });
+  </script>
+</html>

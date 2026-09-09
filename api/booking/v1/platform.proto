@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package booking.v1;
+option go_package = "github.com/tsostanov/SeatFlow/gen/booking/v1;bookingv1";
+
+service InventoryService {
+  rpc ListEvents(Empty) returns (ListEventsResponse);
+  rpc GetAvailability(AvailabilityRequest) returns (AvailabilityResponse);
+  rpc Reserve(ReserveRequest) returns (Booking);
+  rpc GetBooking(BookingRequest) returns (Booking);
+  rpc Release(BookingRequest) returns (Booking);
+  rpc Confirm(BookingRequest) returns (Booking);
+}
+
+service BookingService {
+  rpc Create(CreateBookingRequest) returns (Booking);
+  rpc Get(BookingRequest) returns (Booking);
+  rpc Cancel(BookingRequest) returns (Booking);
+  // Demo checkout only: no money is charged.
+  rpc Checkout(CheckoutRequest) returns (Booking);
+}
+
+message Empty {}
+message Event {
+  int64 id = 1;
+  string title = 2;
+  string venue = 3;
+  string starts_at = 4;
+  int64 price_minor = 5;
+  string currency = 6;
+}
+message ListEventsResponse { repeated Event events = 1; }
+message AvailabilityRequest { int64 event_id = 1; }
+message AvailabilityResponse { repeated int64 available_seat_ids = 1; }
+message CreateBookingRequest {
+  int64 event_id = 1;
+  int64 seat_id = 2;
+  string idempotency_key = 3;
+}
+message ReserveRequest {
+  int64 event_id = 1;
+  int64 seat_id = 2;
+  string booking_id = 3;
+  string idempotency_key = 4;
+  int64 ttl_seconds = 5;
+}
+message BookingRequest { string booking_id = 1; }
+message CheckoutRequest {
+  string booking_id = 1;
+  string payment_result = 2; // success or fail
+}
+message Booking {
+  string id = 1;
+  int64 event_id = 2;
+  int64 seat_id = 3;
+  string status = 4; // RESERVED, SOLD, CANCELLED, EXPIRED
+  string expires_at = 5;
+  int64 price_minor = 6;
+  string currency = 7;
+  string created_at = 8;
+}

@@ -1,0 +1,32 @@
+name: Go checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: booking
+          POSTGRES_PASSWORD: booking
+          POSTGRES_DB: booking_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U booking -d booking_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: test -z "$(gofmt -l cmd internal tests)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go test -race -tags=integration ./tests/... -count=1 -v
+        env:
+          TEST_DATABASE_URL: postgres://booking:booking@localhost:5432/booking_test?sslmode=disable
+      - run: docker compose config --quiet
+      - run: docker compose build

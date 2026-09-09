@@ -1,0 +1,318 @@
+# SeatFlow
+
+[![Go checks](https://github.com/tsostanov/SeatFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/tsostanov/SeatFlow/actions/workflows/ci.yml)
+
+SeatFlow — учебный сервис бронирования билетов на Go. Пользователь выбирает мероприятие и место, получает бронь на 10 минут и подтверждает покупку. Если передумал или не успел, место снова становится доступным.
+
+Главный сценарий проекта — два человека одновременно пытаются занять последнее место. SeatFlow разбирается с этой гонкой, повторными запросами и истечением брони, а не только сохраняет записи в базе.
+
+**Стек:** Go 1.25, gRPC / Protocol Buffers, PostgreSQL 18, Docker Compose. Встроенный веб-интерфейс — HTML, CSS и JavaScript без отдельной сборки.
+
+## Попробовать
+
+Нужен запущенный Docker Engine или Docker Desktop.
+
+```sh
+git clone https://github.com/tsostanov/SeatFlow.git
+cd SeatFlow
+docker compose up --build -d --wait
+```
+
+Откройте **[localhost:8080](http://localhost:8080)**. В демо уже есть три мероприятия, у каждого — 32 места.
+
+1. Выберите место и забронируйте его. Справа появятся ID брони и обратный отсчёт.
+2. Нажмите «Платёж отклонён»: бронь останется активной, можно попробовать оплатить ещё раз.
+3. Нажмите «Тестовая оплата»: место перейдёт в состояние `SOLD`.
+4. Откройте две вкладки и попробуйте забронировать одно место — получить его сможет только одна.
+
+Деньги не списываются: платёж здесь имитируется. Чтобы быстрее проверить истечение брони, скопируйте `.env.example` в `.env`, задайте `BOOKING_TTL=15s` и повторите команду запуска.
+
+```sh
+docker compose logs -f       # логи сервисов
+docker compose down          # остановка, данные сохраняются
+```
+
+HTTP публикуется только на `127.0.0.1`. PostgreSQL и gRPC-порты остаются внутри Docker-сети. Порт страницы можно изменить через `HTTP_PORT` в `.env`.
+
+## Что происходит внутри
+
+Приложение состоит из трёх отдельных процессов. Между ними — gRPC, снаружи — REST.
+
+```mermaid
+flowchart LR
+    Client["Браузер / API-клиент"]
+    Gateway["API Gateway<br/>REST и веб-интерфейс"]
+    Booking["Booking Service<br/>Сценарии бронирования"]
+    subgraph InventoryService["Inventory Service"]
+        Inventory["Каталог, места и резервы"]
+        Worker["Expiry worker<br/>раз в секунду"]
+    end
+    DB[(PostgreSQL)]
+
+    Client -->|HTTP| Gateway
+    Gateway -->|"gRPC: создать, отменить, оплатить"| Booking
+    Gateway -->|"gRPC: события и свободные места"| Inventory
+    Booking -->|"gRPC: операции с резервом"| Inventory
+    Inventory -->|SQL| DB
+    Worker -->|"Пометить просроченные брони"| DB
+```
+
+| Сервис | За что отвечает |
+|---|---|
+| **Gateway** | Принимает HTTP, проверяет JSON, вызывает gRPC и переводит ошибки в HTTP-коды. Отдаёт страницу выбора мест. |
+| **Booking** | Проверяет запрос создания, задаёт TTL и выполняет сценарии отмены и тестовой оплаты. Собственного хранилища нет. |
+| **Inventory** | Хранит каталог, места, резервы и цену на момент бронирования. Управляет транзакциями и переходами состояний. |
+
+В этой версии бронь и резерв — одна запись, которой владеет Inventory. Booking не хранит её копию: после перезапуска сервиса состояние остаётся в PostgreSQL. Изменение места укладывается в одну транзакцию, поэтому распределённая транзакция между сервисами пока не нужна.
+
+### Создание брони
+
+Клиент отправляет UUID в заголовке `Idempotency-Key`. При сетевой ошибке он может повторить запрос с тем же ключом и телом — вторая бронь не появится.
+
+```mermaid
+sequenceDiagram
+    actor U as Пользователь
+    participant G as Gateway
+    participant B as Booking
+    participant I as Inventory
+    participant DB as PostgreSQL
+
+    U->>G: POST /api/bookings + Idempotency-Key
+    G->>B: Create(event_id, seat_id, key)
+    B->>I: Reserve(booking_id, event_id, seat_id, key, TTL)
+    I->>DB: BEGIN
+    I->>DB: Блокировка ключа и поиск запроса
+
+    alt Такой ключ уже есть
+        DB-->>I: Первоначальная бронь
+        I->>DB: Завершить транзакцию без изменений
+        Note over I,DB: Другое место с тем же ключом — конфликт
+    else Новый запрос
+        I->>DB: SELECT место FOR UPDATE
+        Note over I,DB: Конкурентный запрос на это место ждёт блокировку
+        I->>DB: Пометить старую просроченную бронь EXPIRED
+        I->>DB: Проверить активную бронь
+        alt Место свободно
+            I->>DB: INSERT RESERVED с дедлайном и ценой
+            I->>DB: COMMIT
+            DB-->>I: Новая бронь
+        else Место занято
+            I->>DB: ROLLBACK
+            Note over I: Вернуть AlreadyExists
+        end
+    end
+
+    I-->>B: Бронь или ошибка
+    B-->>G: Результат
+    G-->>U: 200 с бронью или 409 при конфликте
+```
+
+Защита от двойного бронирования состоит из двух частей:
+
+- Транзакция блокирует строку **конкретного места** через `SELECT … FOR UPDATE`. Другой запрос на это место дождётся завершения первого и увидит его результат. Разные места блокируются независимо.
+- Частичный уникальный индекс запрещает две записи `RESERVED` или `SOLD` на одно место, даже если в прикладной проверке будет ошибка.
+
+Одинаковые ключи запросов сериализуются транзакционной advisory-блокировкой. Повтор возвращает первоначальную бронь даже после её отмены или истечения. Для новой покупки нужен новый ключ; ключи автоматически не удаляются.
+
+### Жизненный цикл брони
+
+```mermaid
+stateDiagram-v2
+    [*] --> RESERVED: Место успешно зарезервировано
+    RESERVED --> RESERVED: Платёж отклонён
+    RESERVED --> SOLD: Успешная тестовая оплата до дедлайна
+    RESERVED --> CANCELLED: Пользователь отменил бронь
+    RESERVED --> EXPIRED: Время брони истекло
+    SOLD --> SOLD: Повтор подтверждения
+    CANCELLED --> CANCELLED: Повтор отмены
+    EXPIRED --> EXPIRED: Чтение или отмена старой брони
+```
+
+После `CANCELLED` или `EXPIRED` место можно занять новой бронью. Старая запись сохраняется. Проданный билет отменить через этот API нельзя.
+
+Срок проверяется по **времени PostgreSQL**. Worker раз в секунду сохраняет `EXPIRED`, но корректность от него не зависит: чтение, проверка доступности, резервирование и подтверждение тоже учитывают дедлайн. Если подтверждение ждало блокировку и за это время бронь истекла, покупка будет отклонена.
+
+Подтверждение и отмена используют ту же блокировку места, что и создание. Поэтому они не могут одновременно успешно завершить одну бронь, а отмена старой записи не освобождает место, уже занятое новой.
+
+### Модель данных
+
+```mermaid
+erDiagram
+    events ||--o{ seats : "содержит"
+    seats ||--o{ bookings : "история броней"
+
+    events {
+        bigint id PK
+        text title
+        text venue
+        timestamptz starts_at
+        bigint price_minor
+        text currency
+    }
+    seats {
+        bigint event_id PK,FK
+        bigint id PK
+    }
+    bookings {
+        uuid id PK
+        uuid idempotency_key UK
+        bigint event_id FK
+        bigint seat_id FK
+        text status
+        timestamptz expires_at
+        bigint price_minor
+        text currency
+        timestamptz created_at
+    }
+```
+
+Место определяется парой `(event_id, id)`. У него может быть много прошлых броней, но только одна `RESERVED` или `SOLD`. Цена копируется из мероприятия в момент создания брони: клиент её не задаёт. Деньги хранятся целым числом минимальных единиц — `150000` означает 1500 рублей.
+
+## REST API
+
+| Метод | Путь | Действие |
+|---|---|---|
+| GET | `/api/events` | Список мероприятий |
+| GET | `/api/events/{event_id}/seats` | Свободные места |
+| POST | `/api/bookings` | Создать бронь; нужен `Idempotency-Key: <UUID>` |
+| GET | `/api/bookings/{id}` | Получить актуальное состояние |
+| DELETE | `/api/bookings/{id}` | Отменить неоплаченную бронь |
+| POST | `/api/bookings/{id}/checkout` | Имитировать оплату: `success` или `fail` |
+| GET | `/healthz` | Проверить, что HTTP-процесс отвечает |
+| GET | `/readyz` | Проверить всю цепочку сервисов и БД |
+
+Создание брони:
+
+```http
+POST /api/bookings
+Content-Type: application/json
+Idempotency-Key: e7cf2e0f-7999-4719-ae3b-1f9c72cda689
+
+{"event_id":1,"seat_id":12}
+```
+
+Тестовая оплата:
+
+```http
+POST /api/bookings/{id}/checkout
+Content-Type: application/json
+
+{"payment_result":"success"}
+```
+
+Создание и его повтор возвращают `200`. Входные `event_id` и `seat_id` — JSON-числа. В ответах действует protobuf JSON: поля `int64` представлены строками, например `"seat_id":"12"`. Даты — RFC3339 UTC.
+
+Ошибки имеют вид `{"error":"seat is unavailable","code":"AlreadyExists"}`:
+
+| HTTP | Значение |
+|---|---|
+| `400` | Некорректный JSON, идентификатор или параметры |
+| `404` | Мероприятие, место или бронь не найдены |
+| `409` | Место занято, ключ использован с другим телом, платёж отклонён или переход состояния запрещён |
+| `503` / `504` | Зависимость недоступна / истёк таймаут |
+
+После сетевого таймаута повторяйте создание **с тем же ключом и телом**: сервер мог успеть сохранить бронь до потери ответа.
+
+<details>
+<summary>Полный пример для PowerShell</summary>
+
+```powershell
+$base = 'http://localhost:8080'
+Invoke-RestMethod "$base/api/events"
+Invoke-RestMethod "$base/api/events/1/seats"
+
+$headers = @{ 'Idempotency-Key' = [guid]::NewGuid().ToString() }
+$body = @{ event_id = 1; seat_id = 12 } | ConvertTo-Json
+$booking = Invoke-RestMethod "$base/api/bookings" -Method Post `
+    -Headers $headers -ContentType 'application/json' -Body $body
+$booking
+
+# Повтор вернёт ту же бронь.
+Invoke-RestMethod "$base/api/bookings" -Method Post `
+    -Headers $headers -ContentType 'application/json' -Body $body
+
+Invoke-RestMethod "$base/api/bookings/$($booking.id)/checkout" -Method Post `
+    -ContentType 'application/json' -Body '{"payment_result":"success"}'
+
+# Вместо оплаты неоплаченную бронь можно отменить:
+# Invoke-RestMethod "$base/api/bookings/$($booking.id)" -Method Delete
+```
+
+</details>
+
+## Разработка
+
+### Структура проекта
+
+```text
+api/booking/v1/          protobuf-контракт обоих gRPC-сервисов
+gen/booking/v1/          сгенерированные клиенты и серверные интерфейсы
+cmd/                    точки входа gateway, booking и inventory
+internal/booking/       сценарии бронирования и тестовой оплаты
+internal/inventory/     транзакции, SQL-схема, демо-данные, expiry worker
+internal/gateway/       HTTP-обработчики и встроенная веб-страница
+internal/platform/      запуск gRPC, дедлайны и health checks
+tests/                  интеграционные тесты
+```
+
+### Без Docker
+
+Нужны Go 1.25+ и PostgreSQL 18 с отдельной базой для приложения. Inventory создаёт таблицы и демо-данные при старте. `SEED_DEMO=false` отключает заполнение каталога.
+
+Запустите из корня проекта в трёх терминалах PowerShell:
+
+```powershell
+# Терминал 1: подставьте реквизиты своей базы.
+$env:DATABASE_URL = 'postgres://booking:booking@localhost:5432/booking?sslmode=disable'
+go run ./cmd/inventory
+
+# Терминал 2
+go run ./cmd/booking
+
+# Терминал 3
+go run ./cmd/gateway
+```
+
+Локальные адреса по умолчанию: Inventory — `127.0.0.1:50051`, Booking — `127.0.0.1:50052`, Gateway — `127.0.0.1:8080`. Их можно изменить через `GRPC_ADDR`, `INVENTORY_ADDR`, `BOOKING_ADDR` и `HTTP_ADDR` в соответствующих процессах.
+
+### Тесты
+
+```sh
+go test ./...
+go vet ./...
+```
+
+Интеграционные тесты проходят через HTTP и два gRPC-сервера до **настоящей PostgreSQL**. Каждый запуск создаёт отдельную случайную схему и удаляет только её. Нужна тестовая база и пользователь с правом создавать схемы:
+
+```powershell
+$env:TEST_DATABASE_URL = 'postgres://booking:booking@localhost:5432/booking_test?sslmode=disable'
+go test -race -tags=integration ./tests/... -count=1 -v
+```
+
+Без `TEST_DATABASE_URL` интеграционные тесты явно пропускаются. Для `-race` нужен C-компилятор подходящей архитектуры.
+
+Среди проверок — 40 одновременных запросов на одно место, 20 повторов с одним ключом, конфликт оплаты и отмены, истечение без worker, повторное использование места и проверка дедлайна после ожидания блокировки. GitHub Actions запускает тесты с race detector на Ubuntu, `go vet` и сборку Docker-образов.
+
+### Изменение gRPC-контракта
+
+Редактируйте [platform.proto](api/booking/v1/platform.proto), затем перегенерируйте Go-код. Нужен `protoc` — текущий код сгенерирован версией 32.0; версии Go-плагинов закреплены в скриптах.
+
+```powershell
+./scripts/generate.ps1
+```
+
+На Linux/macOS — `make generate`. Сгенерированные файлы хранятся в репозитории, поэтому для обычной сборки и запуска `protoc` не требуется.
+
+## Границы проекта и планы
+
+Сейчас это локальное демо без аккаунтов: зная ID брони, можно прочитать и изменить её. Оплата имитируется, gRPC работает без TLS, каталог живёт внутри Inventory. Для публичного сервиса нужны авторизация, привязка броней к пользователю и настройка защищённого транспорта.
+
+Следующие шаги:
+
+- Auth Service: регистрация, JWT access/refresh и права на операции с бронью.
+- Отдельный каталог с поиском и Redis-кэшем.
+- Order и Payment с идемпотентным списанием и компенсацией при сбоях.
+- Transactional outbox, Kafka или NATS и уведомления о создании, оплате и истечении брони.
+- Метрики Prometheus, трассировка OpenTelemetry и версионированные миграции.
+
+Эти компоненты пока не реализованы. Текущие диаграммы показывают только работающую часть проекта.
