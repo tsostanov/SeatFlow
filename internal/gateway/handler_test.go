@@ -16,6 +16,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 		{"/", "text/html", "SeatFlow"},
 		{"/app.js", "text/javascript", "BookingSession"},
 		{"/booking-session.mjs", "text/javascript", "seatflow-session-v1"},
+		{"/ticket-calendar.mjs", "text/javascript", "BEGIN:VCALENDAR"},
 		{"/styles.css", "text/css", "focus-visible"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {

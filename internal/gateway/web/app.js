@@ -1,4 +1,5 @@
 import { BookingSession } from "/booking-session.mjs";
+import { createTicketCalendar } from "/ticket-calendar.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -137,6 +138,8 @@ function controls() {
     $(id).hidden = !active;
     $(id).disabled = locked;
   }
+  $("calendar").hidden = state.current?.status !== "SOLD";
+  $("calendar").disabled = locked;
   $("payment-demo").hidden = !active;
   $("decline").disabled = locked;
   $("restore-button").disabled = !session || locked || active;
@@ -400,6 +403,27 @@ $("copy").onclick = async () => {
   } catch {
     note(
       "Не удалось скопировать автоматически. Выделите ID в карточке билета и скопируйте вручную.",
+    );
+  }
+};
+$("calendar").onclick = () => {
+  try {
+    const event = state.events.find(
+      (item) => item.id === state.current.event_id,
+    );
+    const contents = createTicketCalendar(event, state.current);
+    const url = URL.createObjectURL(
+      new Blob([contents], { type: "text/calendar;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `seatflow-${state.current.id}.ics`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    note("Событие сохранено в файл календаря.");
+  } catch {
+    note(
+      "Не удалось подготовить файл календаря. Обновите билет и попробуйте ещё раз.",
     );
   }
 };

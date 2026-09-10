@@ -379,6 +379,12 @@ summary {
 .booking-reference span {
   font-size: 10px;
 }
+.reference-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 code {
   display: block;
   overflow-wrap: anywhere;

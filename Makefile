@@ -8,7 +8,7 @@ generate:
 test:
 	go test ./...
 	go vet ./...
-	node --test tests/booking-session.test.mjs
+	node --test tests/booking-session.test.mjs tests/ticket-calendar.test.mjs
 
 integration:
 	go test -race -tags=integration ./tests/... -count=1
