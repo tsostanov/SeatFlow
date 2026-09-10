@@ -22,6 +22,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test tests/booking-session.test.mjs
       - run: test -z "$(gofmt -l cmd internal tests)"
       - run: go vet ./...
       - run: go test -race ./...
@@ -30,3 +34,11 @@ jobs:
           TEST_DATABASE_URL: postgres://booking:booking@localhost:5432/booking_test?sslmode=disable
       - run: docker compose config --quiet
       - run: docker compose build
+      - run: docker compose up -d --wait --wait-timeout 90
+        env:
+          BOOKING_TTL: 5s
+      - run: python3 tests/compose_smoke.py
+      - run: docker compose logs --no-color
+        if: failure()
+      - run: docker compose down
+        if: always()

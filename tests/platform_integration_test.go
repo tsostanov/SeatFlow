@@ -132,6 +132,34 @@ func path(b map[string]any) string { return "/api/bookings/" + b["id"].(string) 
 
 func TestPlatform(t *testing.T) {
 	h := setup(t)
+	t.Run("availability includes actual seat IDs even when occupied", func(t *testing.T) {
+		h := setup(t)
+		ctx := context.Background()
+		if _, err := h.db.Exec(ctx, `INSERT INTO events(id,title,venue,starts_at,price_minor,currency)
+ VALUES (4,'Small venue','Test hall',now()+interval '1 day',10000,'RUB'),
+ (5,'Empty venue','Test hall',now()+interval '1 day',10000,'RUB');
+ INSERT INTO seats(event_id,id) VALUES (4,10),(4,40),(4,99)`); err != nil {
+			t.Fatal(err)
+		}
+		assertSeats := func(available string) {
+			t.Helper()
+			data := h.expect(t, "GET", "/api/events/4/seats", "", "", 200)
+			all, _ := json.Marshal(data["seat_ids"])
+			free, _ := json.Marshal(data["available_seat_ids"])
+			if string(all) != `["10","40","99"]` || string(free) != available {
+				t.Fatalf("all=%s available=%s", all, free)
+			}
+		}
+		assertSeats(`["10","40","99"]`)
+		b := h.expect(t, "POST", "/api/bookings", `{"event_id":4,"seat_id":40}`, uuid.NewString(), 200)
+		assertSeats(`["10","99"]`)
+		h.expect(t, "DELETE", path(b), "", "", 200)
+		assertSeats(`["10","40","99"]`)
+		empty := h.expect(t, "GET", "/api/events/5/seats", "", "", 200)
+		if len(empty["seat_ids"].([]any)) != 0 || len(empty["available_seat_ids"].([]any)) != 0 {
+			t.Fatal(empty)
+		}
+	})
 	t.Run("catalog and validation", func(t *testing.T) {
 		events := h.expect(t, "GET", "/api/events", "", "", 200)
 		if len(events["events"].([]any)) != 3 {

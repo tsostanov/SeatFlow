@@ -31,7 +31,11 @@ message Event {
 }
 message ListEventsResponse { repeated Event events = 1; }
 message AvailabilityRequest { int64 event_id = 1; }
-message AvailabilityResponse { repeated int64 available_seat_ids = 1; }
+message AvailabilityResponse {
+  repeated int64 available_seat_ids = 1;
+  // All seats, including occupied ones. IDs need not be contiguous.
+  repeated int64 seat_ids = 2;
+}
 message CreateBookingRequest {
   int64 event_id = 1;
   int64 seat_id = 2;

@@ -232,8 +232,10 @@ func (x *AvailabilityRequest) GetEventId() int64 {
 type AvailabilityResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	AvailableSeatIds []int64                `protobuf:"varint,1,rep,packed,name=available_seat_ids,json=availableSeatIds,proto3" json:"available_seat_ids,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// All seats, including occupied ones. IDs need not be contiguous.
+	SeatIds       []int64 `protobuf:"varint,2,rep,packed,name=seat_ids,json=seatIds,proto3" json:"seat_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AvailabilityResponse) Reset() {
@@ -269,6 +271,13 @@ func (*AvailabilityResponse) Descriptor() ([]byte, []int) {
 func (x *AvailabilityResponse) GetAvailableSeatIds() []int64 {
 	if x != nil {
 		return x.AvailableSeatIds
+	}
+	return nil
+}
+
+func (x *AvailabilityResponse) GetSeatIds() []int64 {
+	if x != nil {
+		return x.SeatIds
 	}
 	return nil
 }
@@ -623,9 +632,10 @@ const file_api_booking_v1_platform_proto_rawDesc = "" +
 	"\x12ListEventsResponse\x12)\n" +
 	"\x06events\x18\x01 \x03(\v2\x11.booking.v1.EventR\x06events\"0\n" +
 	"\x13AvailabilityRequest\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\x03R\aeventId\"D\n" +
+	"\bevent_id\x18\x01 \x01(\x03R\aeventId\"_\n" +
 	"\x14AvailabilityResponse\x12,\n" +
-	"\x12available_seat_ids\x18\x01 \x03(\x03R\x10availableSeatIds\"s\n" +
+	"\x12available_seat_ids\x18\x01 \x03(\x03R\x10availableSeatIds\x12\x19\n" +
+	"\bseat_ids\x18\x02 \x03(\x03R\aseatIds\"s\n" +
 	"\x14CreateBookingRequest\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\x03R\aeventId\x12\x17\n" +
 	"\aseat_id\x18\x02 \x01(\x03R\x06seatId\x12'\n" +

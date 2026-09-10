@@ -33,6 +33,17 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		data, _ := web.ReadFile("web/index.html")
 		w.Write(data)
 	})
+	for name, contentType := range map[string]string{
+		"app.js":              "text/javascript; charset=utf-8",
+		"booking-session.mjs": "text/javascript; charset=utf-8",
+		"styles.css":          "text/css; charset=utf-8",
+	} {
+		mux.HandleFunc("GET /"+name, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", contentType)
+			data, _ := web.ReadFile("web/" + name)
+			w.Write(data)
+		})
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok\n")) })
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if err := h.ready(r.Context()); err != nil {

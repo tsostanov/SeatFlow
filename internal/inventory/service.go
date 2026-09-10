@@ -117,9 +117,10 @@ func (s *Service) GetAvailability(ctx context.Context, r *pb.AvailabilityRequest
 	if !exists {
 		return nil, status.Error(codes.NotFound, "event not found")
 	}
-	rows, err := s.db.Query(ctx, `SELECT s.id FROM seats s WHERE s.event_id=$1 AND NOT EXISTS (
+	rows, err := s.db.Query(ctx, `SELECT s.id, NOT EXISTS (
  SELECT 1 FROM bookings b WHERE b.event_id=s.event_id AND b.seat_id=s.id
- AND (b.status='SOLD' OR (b.status='RESERVED' AND b.expires_at > clock_timestamp()))) ORDER BY s.id`, r.EventId)
+ AND (b.status='SOLD' OR (b.status='RESERVED' AND b.expires_at > clock_timestamp())))
+ FROM seats s WHERE s.event_id=$1 ORDER BY s.id`, r.EventId)
 	if err != nil {
 		return nil, dbError(err)
 	}
@@ -127,10 +128,14 @@ func (s *Service) GetAvailability(ctx context.Context, r *pb.AvailabilityRequest
 	result := &pb.AvailabilityResponse{}
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var available bool
+		if err := rows.Scan(&id, &available); err != nil {
 			return nil, dbError(err)
 		}
-		result.AvailableSeatIds = append(result.AvailableSeatIds, id)
+		result.SeatIds = append(result.SeatIds, id)
+		if available {
+			result.AvailableSeatIds = append(result.AvailableSeatIds, id)
+		}
 	}
 	if rows.Err() != nil {
 		return nil, dbError(rows.Err())
