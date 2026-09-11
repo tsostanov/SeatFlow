@@ -3,8 +3,10 @@ package gateway
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +38,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 		{"/app.js", "text/javascript", "BookingSession"},
 		{"/booking-session.mjs", "text/javascript", "seatflow-session-v1"},
 		{"/ticket-calendar.mjs", "text/javascript", "BEGIN:VCALENDAR"},
+		{"/ticket-share.mjs", "text/javascript", "createTicketShare"},
 		{"/styles.css", "text/css", "focus-visible"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
@@ -99,18 +102,24 @@ func TestSeatStreamPublishesAvailabilityChanges(t *testing.T) {
 			}
 		}
 	}()
-	waitFor := func(contains string) {
+	waitFor := func(want []string) {
 		t.Helper()
 		select {
 		case line := <-lines:
-			if !strings.Contains(line, contains) {
-				t.Fatalf("event %q does not contain %q", line, contains)
+			var event struct {
+				AvailableSeatIDs []string `json:"available_seat_ids"`
+			}
+			if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(event.AvailableSeatIDs, want) {
+				t.Fatalf("available seats=%v want=%v", event.AvailableSeatIDs, want)
 			}
 		case <-time.After(3 * time.Second):
 			t.Fatal("timed out waiting for seat event")
 		}
 	}
-	waitFor(`"available_seat_ids":["1","2"]`)
+	waitFor([]string{"1", "2"})
 	client.responses <- &pb.AvailabilityResponse{SeatIds: []int64{1, 2}, AvailableSeatIds: []int64{2}}
-	waitFor(`"available_seat_ids":["2"]`)
+	waitFor([]string{"2"})
 }

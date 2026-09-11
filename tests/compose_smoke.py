@@ -32,6 +32,7 @@ request("GET", "/readyz")
 assert b"SeatFlow" in request("GET", "/")
 assert b"BookingSession" in request("GET", "/app.js")
 assert b"BEGIN:VCALENDAR" in request("GET", "/ticket-calendar.mjs")
+assert b"createTicketShare" in request("GET", "/ticket-share.mjs")
 events = request("GET", "/api/events")["events"]
 event_id = int(events[0]["id"])
 available = request("GET", f"/api/events/{event_id}/seats")

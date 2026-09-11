@@ -39,6 +39,7 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		"app.js":              "text/javascript; charset=utf-8",
 		"booking-session.mjs": "text/javascript; charset=utf-8",
 		"ticket-calendar.mjs": "text/javascript; charset=utf-8",
+		"ticket-share.mjs":    "text/javascript; charset=utf-8",
 		"styles.css":          "text/css; charset=utf-8",
 	} {
 		mux.HandleFunc("GET /"+name, func(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,6 @@
 import { BookingSession } from "/booking-session.mjs";
 import { createTicketCalendar } from "/ticket-calendar.mjs";
+import { createTicketShare, ticketIDFromURL } from "/ticket-share.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -15,6 +16,7 @@ const state = {
   streamEvent: null,
 };
 let session;
+const linkedTicketID = ticketIDFromURL(window.location.href);
 
 const titles = {
   RESERVED: "Место за вами",
@@ -152,6 +154,8 @@ function controls() {
   }
   $("calendar").hidden = state.current?.status !== "SOLD";
   $("calendar").disabled = locked;
+  $("share").hidden = state.current?.status !== "SOLD";
+  $("share").disabled = locked;
   $("payment-demo").hidden = !active;
   $("decline").disabled = locked;
   $("restore-button").disabled = !session || locked || active;
@@ -456,6 +460,27 @@ $("copy").onclick = async () => {
     );
   }
 };
+$("share").onclick = async () => {
+  const event = state.events.find(
+    (item) => item.id === state.current?.event_id,
+  );
+  try {
+    const data = createTicketShare(window.location.href, event, state.current);
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share(data);
+        note("Билет отправлен.");
+        return;
+      } catch (error) {
+        if (error.name === "AbortError") return;
+      }
+    }
+    await navigator.clipboard.writeText(data.url);
+    note("Ссылка на билет скопирована.");
+  } catch {
+    note("Не удалось поделиться билетом. Скопируйте ID и передайте его вручную.");
+  }
+};
 $("calendar").onclick = () => {
   try {
     const event = state.events.find(
@@ -489,6 +514,15 @@ action(async () => {
   await loadSeats();
   if (session?.pending) {
     acceptBooking(await session.retry(), true);
+    await loadSeats();
+  } else if (linkedTicketID) {
+    const booking = await api("/bookings/" + linkedTicketID);
+    if (
+      booking.id?.toLowerCase() !== linkedTicketID ||
+      booking.status !== "SOLD"
+    )
+      throw new Error("Ссылка открывает только оплаченный билет.");
+    acceptBooking(booking, true);
     await loadSeats();
   } else if (session?.bookingID) {
     acceptBooking(await api("/bookings/" + session.bookingID), true);
