@@ -104,6 +104,18 @@ p {
 .connection[data-online="true"]::before {
   background: #b8ed8b;
 }
+.connection[data-live="true"]::before {
+  animation: live-pulse 1.8s ease-out infinite;
+}
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(184 237 139 / 45%);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px rgb(184 237 139 / 0%);
+  }
+}
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
@@ -522,5 +534,6 @@ footer .brand {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
   }
 }

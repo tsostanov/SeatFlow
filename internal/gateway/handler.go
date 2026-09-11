@@ -1,9 +1,11 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -59,12 +61,17 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 	mux.HandleFunc("GET /api/bookings/{id}", h.get)
 	mux.HandleFunc("DELETE /api/bookings/{id}", h.cancel)
 	mux.HandleFunc("POST /api/bookings/{id}/checkout", h.checkout)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	root := http.NewServeMux()
+	root.HandleFunc("GET /api/events/{event}/seats/stream", h.seatStream)
+	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
+		mux.ServeHTTP(w, r.WithContext(ctx))
+	}))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Cache-Control", "no-store")
-		mux.ServeHTTP(w, r.WithContext(ctx))
+		root.ServeHTTP(w, r)
 	})
 }
 
@@ -134,13 +141,95 @@ func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) seats(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("event"), 10, 64)
-	if err != nil || id <= 0 {
-		fail(w, status.Error(codes.InvalidArgument, "event must be a positive integer"))
+	id, ok := eventID(w, r)
+	if !ok {
 		return
 	}
 	result, err := h.inventory.GetAvailability(r.Context(), &pb.AvailabilityRequest{EventId: id})
 	respond(w, result, err)
+}
+
+func eventID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("event"), 10, 64)
+	if err != nil || id <= 0 {
+		fail(w, status.Error(codes.InvalidArgument, "event must be a positive integer"))
+		return 0, false
+	}
+	return id, true
+}
+
+func (h *Handler) seatStream(w http.ResponseWriter, r *http.Request) {
+	id, ok := eventID(w, r)
+	if !ok {
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		fail(w, status.Error(codes.Internal, "streaming is unavailable"))
+		return
+	}
+
+	fetch := func() (*pb.AvailabilityResponse, error) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		return h.inventory.GetAvailability(ctx, &pb.AvailabilityRequest{EventId: id})
+	}
+	initial, err := fetch()
+	if err != nil {
+		respond(w, initial, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	controller := http.NewResponseController(w)
+	_ = controller.SetWriteDeadline(time.Time{})
+
+	var previous []byte
+	send := func(value *pb.AvailabilityResponse) error {
+		data, err := (protojson.MarshalOptions{UseProtoNames: true, EmitUnpopulated: true}).Marshal(value)
+		if err != nil {
+			return err
+		}
+		if bytes.Equal(data, previous) {
+			return nil
+		}
+		if err := controller.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil && err != http.ErrNotSupported {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "event: seats\ndata: %s\n\n", data); err != nil {
+			return err
+		}
+		flusher.Flush()
+		_ = controller.SetWriteDeadline(time.Time{})
+		previous = append(previous[:0], data...)
+		return nil
+	}
+	if err := send(initial); err != nil {
+		return
+	}
+
+	updates := time.NewTicker(time.Second)
+	keepAlive := time.NewTicker(15 * time.Second)
+	defer updates.Stop()
+	defer keepAlive.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-updates.C:
+			value, err := fetch()
+			if err != nil || send(value) != nil {
+				return
+			}
+		case <-keepAlive.C:
+			if _, err := io.WriteString(w, ": keep-alive\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {

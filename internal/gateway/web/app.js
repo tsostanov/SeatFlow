@@ -11,6 +11,8 @@ const state = {
   epoch: 0,
   seatEvent: null,
   available: new Set(),
+  seatStream: null,
+  streamEvent: null,
 };
 let session;
 
@@ -50,11 +52,21 @@ function note(text) {
   $("notice").textContent = text;
   $("notice").hidden = !text;
 }
-function connection(online) {
+function seatStreamLive() {
+  return (
+    typeof EventSource !== "undefined" &&
+    state.seatStream?.readyState === EventSource.OPEN
+  );
+}
+
+function connection(online, live = seatStreamLive()) {
   $("connection").dataset.online = String(online);
+  $("connection").dataset.live = String(online && live);
   $("connection").textContent = online
-    ? "Данные обновляются"
-    : "Не удалось обновить данные";
+    ? live
+      ? "Места обновляются в реальном времени"
+      : "Данные обновляются"
+    : "Восстанавливаем соединение…";
 }
 function errorMessage(error) {
   if (error.status >= 500 || error.status === 408)
@@ -233,6 +245,42 @@ function reconcileSeats(eventID, data) {
   controls();
 }
 
+function stopSeatStream() {
+  state.seatStream?.close();
+  state.seatStream = null;
+  state.streamEvent = null;
+}
+
+function startSeatStream(eventID) {
+  if (typeof EventSource === "undefined" || state.streamEvent === eventID)
+    return;
+  stopSeatStream();
+  const source = new EventSource(
+    `/api/events/${encodeURIComponent(eventID)}/seats/stream`,
+  );
+  state.seatStream = source;
+  state.streamEvent = eventID;
+  source.onopen = () => {
+    if (state.seatStream === source) connection(true, true);
+  };
+  source.addEventListener("seats", (event) => {
+    if (state.seatStream !== source || $("event").value !== eventID) return;
+    try {
+      const data = JSON.parse(event.data);
+      if (!Array.isArray(data.seat_ids) || !Array.isArray(data.available_seat_ids))
+        throw new Error("invalid seats event");
+      reconcileSeats(eventID, data);
+      connection(true, true);
+    } catch {
+      stopSeatStream();
+      connection(false);
+    }
+  });
+  source.onerror = () => {
+    if (state.seatStream === source) connection(false);
+  };
+}
+
 async function loadSeats() {
   const eventID = $("event").value;
   if (!eventID) {
@@ -243,6 +291,7 @@ async function loadSeats() {
   const data = await api(`/events/${eventID}/seats`);
   if (epoch !== state.epoch || eventID !== $("event").value) return;
   reconcileSeats(eventID, data);
+  startSeatStream(eventID);
 }
 
 function renderBooking() {
@@ -326,6 +375,7 @@ async function refresh() {
 
 $("event").onchange = () =>
   action(async () => {
+    stopSeatStream();
     state.selected = null;
     eventDetails();
     // Old seats must not remain selectable if the new event fails to load.
@@ -453,3 +503,4 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("online", refresh);
 window.addEventListener("offline", () => connection(false));
+window.addEventListener("pagehide", stopSeatStream);

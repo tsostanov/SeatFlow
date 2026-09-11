@@ -1,14 +1,33 @@
 package gateway
 
 import (
+	"bufio"
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+type availabilityClient struct {
+	pb.InventoryServiceClient
+	responses chan *pb.AvailabilityResponse
+}
+
+func (c *availabilityClient) GetAvailability(ctx context.Context, _ *pb.AvailabilityRequest, _ ...grpc.CallOption) (*pb.AvailabilityResponse, error) {
+	select {
+	case response := <-c.responses:
+		return response, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
 
 func TestEmbeddedWebAssets(t *testing.T) {
 	handler := New(nil, nil, func(context.Context) error { return nil })
@@ -48,4 +67,50 @@ func TestInternalErrorsDoNotLeakDetails(t *testing.T) {
 	if w.Code != 500 || strings.Contains(w.Body.String(), "secret") {
 		t.Fatal(w.Body.String())
 	}
+}
+
+func TestSeatStreamPublishesAvailabilityChanges(t *testing.T) {
+	client := &availabilityClient{responses: make(chan *pb.AvailabilityResponse, 2)}
+	client.responses <- &pb.AvailabilityResponse{SeatIds: []int64{1, 2}, AvailableSeatIds: []int64{1, 2}}
+	server := httptest.NewServer(New(nil, client, func(context.Context) error { return nil }))
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events/1/seats/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "text/event-stream; charset=utf-8" {
+		t.Fatalf("status=%d type=%q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+
+	lines := make(chan string, 2)
+	go func() {
+		scanner := bufio.NewScanner(response.Body)
+		for scanner.Scan() {
+			if strings.HasPrefix(scanner.Text(), "data: ") {
+				lines <- scanner.Text()
+			}
+		}
+	}()
+	waitFor := func(contains string) {
+		t.Helper()
+		select {
+		case line := <-lines:
+			if !strings.Contains(line, contains) {
+				t.Fatalf("event %q does not contain %q", line, contains)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("timed out waiting for seat event")
+		}
+	}
+	waitFor(`"available_seat_ids":["1","2"]`)
+	client.responses <- &pb.AvailabilityResponse{SeatIds: []int64{1, 2}, AvailableSeatIds: []int64{2}}
+	waitFor(`"available_seat_ids":["2"]`)
 }
