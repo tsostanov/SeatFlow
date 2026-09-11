@@ -46,10 +46,12 @@ path = f"/api/bookings/{booking['id']}"
 request("POST", path + "/checkout", {"payment_result": "fail"}, expected=409)
 assert request("GET", path)["status"] == "RESERVED"
 assert request("DELETE", path)["status"] == "CANCELLED"
+assert [event["status"] for event in request("GET", path + "/history")["events"]] == ["RESERVED", "CANCELLED"]
 booking = request("POST", "/api/bookings", body, str(uuid.uuid4()))
 path = f"/api/bookings/{booking['id']}"
 assert request("POST", path + "/checkout", {"payment_result": "success"})["status"] == "SOLD"
 assert request("POST", path + "/checkout", {"payment_result": "success"})["status"] == "SOLD"
+assert [event["status"] for event in request("GET", path + "/history")["events"]] == ["RESERVED", "SOLD"]
 request("DELETE", path, expected=409)
 
 # CI sets BOOKING_TTL=5s. Verify the worker and the configured TTL through TCP.
@@ -60,4 +62,4 @@ while request("GET", f"/api/bookings/{booking['id']}")["status"] == "RESERVED":
     assert time.monotonic() < deadline, "Expected a short TTL; run the disposable stack with BOOKING_TTL=5s"
     time.sleep(0.25)
 assert str(seat_id) in request("GET", f"/api/events/{event_id}/seats")["available_seat_ids"]
-print("PASS: Compose readiness, assets, idempotency, conflict, decline, cancel, checkout, expiry")
+print("PASS: Compose readiness, assets, idempotency, conflict, history, decline, cancel, checkout, expiry")

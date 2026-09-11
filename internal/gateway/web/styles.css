@@ -371,6 +371,69 @@ progress {
   gap: 8px;
   flex-wrap: wrap;
 }
+.ticket-history {
+  border-top: 1px solid #303745;
+  margin: 22px 0;
+  padding-top: 18px;
+}
+.history-title {
+  color: #a8b2c4;
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+#booking-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#booking-history li {
+  display: grid;
+  gap: 3px;
+  min-height: 42px;
+  padding-left: 22px;
+  position: relative;
+}
+#booking-history li:not(:last-child)::after {
+  background: #465163;
+  content: "";
+  height: 100%;
+  left: 5px;
+  position: absolute;
+  top: 10px;
+  width: 1px;
+}
+#booking-history li::before {
+  background: #242c3b;
+  border: 2px solid #657188;
+  border-radius: 50%;
+  content: "";
+  height: 11px;
+  left: 0;
+  position: absolute;
+  top: 4px;
+  width: 11px;
+  z-index: 1;
+}
+#booking-history li.current::before {
+  background: #b8ed8b;
+  border-color: #b8ed8b;
+  box-shadow: 0 0 0 4px rgb(184 237 139 / 10%);
+}
+#booking-history strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+#booking-history time {
+  color: #8997ae;
+  font-size: 10px;
+}
+#booking-history .history-loading {
+  color: #8997ae;
+  font-size: 11px;
+  min-height: 24px;
+}
 .actions > button {
   flex: 1;
 }

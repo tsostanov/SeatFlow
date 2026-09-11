@@ -8,6 +8,7 @@ service InventoryService {
   rpc GetAvailability(AvailabilityRequest) returns (AvailabilityResponse);
   rpc Reserve(ReserveRequest) returns (Booking);
   rpc GetBooking(BookingRequest) returns (Booking);
+  rpc GetBookingHistory(BookingRequest) returns (BookingHistoryResponse);
   rpc Release(BookingRequest) returns (Booking);
   rpc Confirm(BookingRequest) returns (Booking);
 }
@@ -15,6 +16,7 @@ service InventoryService {
 service BookingService {
   rpc Create(CreateBookingRequest) returns (Booking);
   rpc Get(BookingRequest) returns (Booking);
+  rpc History(BookingRequest) returns (BookingHistoryResponse);
   rpc Cancel(BookingRequest) returns (Booking);
   // Demo checkout only: no money is charged.
   rpc Checkout(CheckoutRequest) returns (Booking);
@@ -63,3 +65,8 @@ message Booking {
   string currency = 7;
   string created_at = 8;
 }
+message BookingHistoryEvent {
+  string status = 1;
+  string occurred_at = 2;
+}
+message BookingHistoryResponse { repeated BookingHistoryEvent events = 1; }

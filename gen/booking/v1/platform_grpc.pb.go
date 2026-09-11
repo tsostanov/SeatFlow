@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	InventoryService_ListEvents_FullMethodName      = "/booking.v1.InventoryService/ListEvents"
-	InventoryService_GetAvailability_FullMethodName = "/booking.v1.InventoryService/GetAvailability"
-	InventoryService_Reserve_FullMethodName         = "/booking.v1.InventoryService/Reserve"
-	InventoryService_GetBooking_FullMethodName      = "/booking.v1.InventoryService/GetBooking"
-	InventoryService_Release_FullMethodName         = "/booking.v1.InventoryService/Release"
-	InventoryService_Confirm_FullMethodName         = "/booking.v1.InventoryService/Confirm"
+	InventoryService_ListEvents_FullMethodName        = "/booking.v1.InventoryService/ListEvents"
+	InventoryService_GetAvailability_FullMethodName   = "/booking.v1.InventoryService/GetAvailability"
+	InventoryService_Reserve_FullMethodName           = "/booking.v1.InventoryService/Reserve"
+	InventoryService_GetBooking_FullMethodName        = "/booking.v1.InventoryService/GetBooking"
+	InventoryService_GetBookingHistory_FullMethodName = "/booking.v1.InventoryService/GetBookingHistory"
+	InventoryService_Release_FullMethodName           = "/booking.v1.InventoryService/Release"
+	InventoryService_Confirm_FullMethodName           = "/booking.v1.InventoryService/Confirm"
 )
 
 // InventoryServiceClient is the client API for InventoryService service.
@@ -35,6 +36,7 @@ type InventoryServiceClient interface {
 	GetAvailability(ctx context.Context, in *AvailabilityRequest, opts ...grpc.CallOption) (*AvailabilityResponse, error)
 	Reserve(ctx context.Context, in *ReserveRequest, opts ...grpc.CallOption) (*Booking, error)
 	GetBooking(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
+	GetBookingHistory(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*BookingHistoryResponse, error)
 	Release(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
 	Confirm(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
 }
@@ -87,6 +89,16 @@ func (c *inventoryServiceClient) GetBooking(ctx context.Context, in *BookingRequ
 	return out, nil
 }
 
+func (c *inventoryServiceClient) GetBookingHistory(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*BookingHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BookingHistoryResponse)
+	err := c.cc.Invoke(ctx, InventoryService_GetBookingHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *inventoryServiceClient) Release(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Booking)
@@ -115,6 +127,7 @@ type InventoryServiceServer interface {
 	GetAvailability(context.Context, *AvailabilityRequest) (*AvailabilityResponse, error)
 	Reserve(context.Context, *ReserveRequest) (*Booking, error)
 	GetBooking(context.Context, *BookingRequest) (*Booking, error)
+	GetBookingHistory(context.Context, *BookingRequest) (*BookingHistoryResponse, error)
 	Release(context.Context, *BookingRequest) (*Booking, error)
 	Confirm(context.Context, *BookingRequest) (*Booking, error)
 	mustEmbedUnimplementedInventoryServiceServer()
@@ -138,6 +151,9 @@ func (UnimplementedInventoryServiceServer) Reserve(context.Context, *ReserveRequ
 }
 func (UnimplementedInventoryServiceServer) GetBooking(context.Context, *BookingRequest) (*Booking, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetBooking not implemented")
+}
+func (UnimplementedInventoryServiceServer) GetBookingHistory(context.Context, *BookingRequest) (*BookingHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBookingHistory not implemented")
 }
 func (UnimplementedInventoryServiceServer) Release(context.Context, *BookingRequest) (*Booking, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Release not implemented")
@@ -238,6 +254,24 @@ func _InventoryService_GetBooking_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InventoryService_GetBookingHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServiceServer).GetBookingHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InventoryService_GetBookingHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServiceServer).GetBookingHistory(ctx, req.(*BookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _InventoryService_Release_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BookingRequest)
 	if err := dec(in); err != nil {
@@ -298,6 +332,10 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InventoryService_GetBooking_Handler,
 		},
 		{
+			MethodName: "GetBookingHistory",
+			Handler:    _InventoryService_GetBookingHistory_Handler,
+		},
+		{
 			MethodName: "Release",
 			Handler:    _InventoryService_Release_Handler,
 		},
@@ -313,6 +351,7 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 const (
 	BookingService_Create_FullMethodName   = "/booking.v1.BookingService/Create"
 	BookingService_Get_FullMethodName      = "/booking.v1.BookingService/Get"
+	BookingService_History_FullMethodName  = "/booking.v1.BookingService/History"
 	BookingService_Cancel_FullMethodName   = "/booking.v1.BookingService/Cancel"
 	BookingService_Checkout_FullMethodName = "/booking.v1.BookingService/Checkout"
 )
@@ -323,6 +362,7 @@ const (
 type BookingServiceClient interface {
 	Create(ctx context.Context, in *CreateBookingRequest, opts ...grpc.CallOption) (*Booking, error)
 	Get(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
+	History(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*BookingHistoryResponse, error)
 	Cancel(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
 	// Demo checkout only: no money is charged.
 	Checkout(ctx context.Context, in *CheckoutRequest, opts ...grpc.CallOption) (*Booking, error)
@@ -356,6 +396,16 @@ func (c *bookingServiceClient) Get(ctx context.Context, in *BookingRequest, opts
 	return out, nil
 }
 
+func (c *bookingServiceClient) History(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*BookingHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BookingHistoryResponse)
+	err := c.cc.Invoke(ctx, BookingService_History_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *bookingServiceClient) Cancel(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Booking)
@@ -382,6 +432,7 @@ func (c *bookingServiceClient) Checkout(ctx context.Context, in *CheckoutRequest
 type BookingServiceServer interface {
 	Create(context.Context, *CreateBookingRequest) (*Booking, error)
 	Get(context.Context, *BookingRequest) (*Booking, error)
+	History(context.Context, *BookingRequest) (*BookingHistoryResponse, error)
 	Cancel(context.Context, *BookingRequest) (*Booking, error)
 	// Demo checkout only: no money is charged.
 	Checkout(context.Context, *CheckoutRequest) (*Booking, error)
@@ -400,6 +451,9 @@ func (UnimplementedBookingServiceServer) Create(context.Context, *CreateBookingR
 }
 func (UnimplementedBookingServiceServer) Get(context.Context, *BookingRequest) (*Booking, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedBookingServiceServer) History(context.Context, *BookingRequest) (*BookingHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method History not implemented")
 }
 func (UnimplementedBookingServiceServer) Cancel(context.Context, *BookingRequest) (*Booking, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Cancel not implemented")
@@ -464,6 +518,24 @@ func _BookingService_Get_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BookingService_History_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BookingServiceServer).History(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BookingService_History_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BookingServiceServer).History(ctx, req.(*BookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BookingService_Cancel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BookingRequest)
 	if err := dec(in); err != nil {
@@ -514,6 +586,10 @@ var BookingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _BookingService_Get_Handler,
+		},
+		{
+			MethodName: "History",
+			Handler:    _BookingService_History_Handler,
 		},
 		{
 			MethodName: "Cancel",

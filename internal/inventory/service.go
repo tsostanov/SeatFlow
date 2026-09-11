@@ -172,8 +172,11 @@ func (s *Service) Reserve(ctx context.Context, r *pb.ReserveRequest) (*pb.Bookin
 		return nil, dbError(err)
 	}
 	// Expire under the same seat lock before the partial unique index is checked.
-	if _, err = tx.Exec(ctx, `UPDATE bookings SET status='EXPIRED' WHERE event_id=$1 AND seat_id=$2
- AND status='RESERVED' AND expires_at <= clock_timestamp()`, r.EventId, r.SeatId); err != nil {
+	if _, err = tx.Exec(ctx, `WITH expired AS (
+ UPDATE bookings SET status='EXPIRED' WHERE event_id=$1 AND seat_id=$2
+ AND status='RESERVED' AND expires_at <= clock_timestamp() RETURNING id
+ ) INSERT INTO booking_history(booking_id,status)
+ SELECT id,'EXPIRED' FROM expired ON CONFLICT DO NOTHING`, r.EventId, r.SeatId); err != nil {
 		return nil, dbError(err)
 	}
 	var taken bool
@@ -189,6 +192,10 @@ func (s *Service) Reserve(ctx context.Context, r *pb.ReserveRequest) (*pb.Bookin
 	if err != nil {
 		return nil, err
 	}
+	if _, err = tx.Exec(ctx, `INSERT INTO booking_history(booking_id,status,occurred_at)
+ SELECT id,status,created_at FROM bookings WHERE id=$1 ON CONFLICT DO NOTHING`, b.Id); err != nil {
+		return nil, dbError(err)
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return nil, dbError(err)
 	}
@@ -199,7 +206,54 @@ func (s *Service) GetBooking(ctx context.Context, r *pb.BookingRequest) (*pb.Boo
 	if !validID(r.BookingId) {
 		return nil, status.Error(codes.InvalidArgument, "booking_id must be a nonzero UUID")
 	}
+	if err := s.persistExpiry(ctx, r.BookingId); err != nil {
+		return nil, err
+	}
 	return scanBooking(s.db.QueryRow(ctx, "SELECT "+bookingColumns+" FROM bookings WHERE id=$1", r.BookingId))
+}
+
+func (s *Service) GetBookingHistory(ctx context.Context, r *pb.BookingRequest) (*pb.BookingHistoryResponse, error) {
+	if !validID(r.BookingId) {
+		return nil, status.Error(codes.InvalidArgument, "booking_id must be a nonzero UUID")
+	}
+	if err := s.persistExpiry(ctx, r.BookingId); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(ctx, `SELECT status,occurred_at FROM booking_history
+ WHERE booking_id=$1 ORDER BY occurred_at,CASE WHEN status='RESERVED' THEN 0 ELSE 1 END`, r.BookingId)
+	if err != nil {
+		return nil, dbError(err)
+	}
+	defer rows.Close()
+	result := &pb.BookingHistoryResponse{}
+	for rows.Next() {
+		event := &pb.BookingHistoryEvent{}
+		var occurred time.Time
+		if err := rows.Scan(&event.Status, &occurred); err != nil {
+			return nil, dbError(err)
+		}
+		event.OccurredAt = occurred.UTC().Format(time.RFC3339Nano)
+		result.Events = append(result.Events, event)
+	}
+	if rows.Err() != nil {
+		return nil, dbError(rows.Err())
+	}
+	if len(result.Events) == 0 {
+		return nil, status.Error(codes.NotFound, "booking not found")
+	}
+	return result, nil
+}
+
+func (s *Service) persistExpiry(ctx context.Context, bookingID string) error {
+	_, err := s.db.Exec(ctx, `WITH expired AS (
+ UPDATE bookings SET status='EXPIRED' WHERE id=$1 AND status='RESERVED'
+ AND expires_at <= clock_timestamp() RETURNING id
+ ) INSERT INTO booking_history(booking_id,status)
+ SELECT id,'EXPIRED' FROM expired ON CONFLICT DO NOTHING`, bookingID)
+	if err != nil {
+		return dbError(err)
+	}
+	return nil
 }
 
 func (s *Service) Release(ctx context.Context, r *pb.BookingRequest) (*pb.Booking, error) {
@@ -227,8 +281,11 @@ func (s *Service) transition(ctx context.Context, r *pb.BookingRequest, target s
 		return nil, dbError(err)
 	}
 	// UPDATE obtains the booking lock and evaluates expiry after any wait.
-	_, err = tx.Exec(ctx, `UPDATE bookings SET status=CASE WHEN expires_at <= clock_timestamp() THEN 'EXPIRED' ELSE $2 END
- WHERE id=$1 AND status='RESERVED'`, r.BookingId, target)
+	_, err = tx.Exec(ctx, `WITH changed AS (
+ UPDATE bookings SET status=CASE WHEN expires_at <= clock_timestamp() THEN 'EXPIRED' ELSE $2 END
+ WHERE id=$1 AND status='RESERVED' RETURNING id,status
+ ) INSERT INTO booking_history(booking_id,status)
+ SELECT id,status FROM changed ON CONFLICT DO NOTHING`, r.BookingId, target)
 	if err != nil {
 		return nil, dbError(err)
 	}
@@ -246,7 +303,10 @@ func (s *Service) transition(ctx context.Context, r *pb.BookingRequest, target s
 }
 
 func (s *Service) Expire(ctx context.Context) (int64, error) {
-	result, err := s.db.Exec(ctx, "UPDATE bookings SET status='EXPIRED' WHERE status='RESERVED' AND expires_at <= clock_timestamp()")
+	result, err := s.db.Exec(ctx, `WITH expired AS (
+ UPDATE bookings SET status='EXPIRED' WHERE status='RESERVED' AND expires_at <= clock_timestamp() RETURNING id
+ ) INSERT INTO booking_history(booking_id,status)
+ SELECT id,'EXPIRED' FROM expired ON CONFLICT DO NOTHING`)
 	return result.RowsAffected(), err
 }
 

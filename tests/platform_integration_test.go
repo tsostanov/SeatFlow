@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -130,6 +131,32 @@ func (h *harness) reserve(t *testing.T, seat int) map[string]any {
 
 func path(b map[string]any) string { return "/api/bookings/" + b["id"].(string) }
 
+func (h *harness) expectHistory(t *testing.T, b map[string]any, want ...string) {
+	t.Helper()
+	data := h.expect(t, "GET", path(b)+"/history", "", "", 200)
+	events, ok := data["events"].([]any)
+	if !ok {
+		t.Fatalf("invalid history response: %v", data)
+	}
+	statuses := make([]string, 0, len(events))
+	var previous time.Time
+	for _, value := range events {
+		event, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("invalid history event: %v", value)
+		}
+		statuses = append(statuses, event["status"].(string))
+		occurred, err := time.Parse(time.RFC3339Nano, event["occurred_at"].(string))
+		if err != nil || (!previous.IsZero() && occurred.Before(previous)) {
+			t.Fatalf("invalid history time %v after %v: %v", occurred, previous, err)
+		}
+		previous = occurred
+	}
+	if !slices.Equal(statuses, want) {
+		t.Fatalf("history=%v want=%v", statuses, want)
+	}
+}
+
 func TestPlatform(t *testing.T) {
 	h := setup(t)
 	t.Run("availability includes actual seat IDs even when occupied", func(t *testing.T) {
@@ -168,6 +195,8 @@ func TestPlatform(t *testing.T) {
 		h.expect(t, "GET", "/api/events/999/seats", "", "", 404)
 		h.expect(t, "GET", "/api/events/0/seats", "", "", 400)
 		h.expect(t, "GET", "/api/bookings/not-a-uuid", "", "", 400)
+		h.expect(t, "GET", "/api/bookings/not-a-uuid/history", "", "", 400)
+		h.expect(t, "GET", "/api/bookings/"+uuid.NewString()+"/history", "", "", 404)
 		h.expect(t, "GET", "/api/bookings/"+uuid.NewString(), "", "", 404)
 		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":1}`, "", 400)
 		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":1,"unknown":true}`, uuid.NewString(), 400)
@@ -266,6 +295,22 @@ func TestPlatform(t *testing.T) {
 		}
 		h.expect(t, "POST", path(c)+"/checkout", `{"payment_result":"success"}`, "", 409)
 	})
+	t.Run("booking history records each state exactly once", func(t *testing.T) {
+		b := h.reserve(t, 9)
+		h.expectHistory(t, b, "RESERVED")
+		h.expect(t, "POST", path(b)+"/checkout", `{"payment_result":"fail"}`, "", 409)
+		h.expectHistory(t, b, "RESERVED")
+		for i := 0; i < 2; i++ {
+			h.expect(t, "POST", path(b)+"/checkout", `{"payment_result":"success"}`, "", 200)
+		}
+		h.expectHistory(t, b, "RESERVED", "SOLD")
+
+		cancelled := h.reserve(t, 10)
+		for i := 0; i < 2; i++ {
+			h.expect(t, "DELETE", path(cancelled), "", "", 200)
+		}
+		h.expectHistory(t, cancelled, "RESERVED", "CANCELLED")
+	})
 	t.Run("expiry works without worker and survives service recreation", func(t *testing.T) {
 		b := h.reserve(t, 5)
 		if _, err := h.db.Exec(context.Background(), "UPDATE bookings SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1", b["id"]); err != nil {
@@ -279,6 +324,7 @@ func TestPlatform(t *testing.T) {
 		if err != nil || expired.Status != "EXPIRED" {
 			t.Fatalf("%v %v", expired, err)
 		}
+		h.expectHistory(t, b, "RESERVED", "EXPIRED")
 		h.expect(t, "POST", path(b)+"/checkout", `{"payment_result":"success"}`, "", 409)
 		seats := h.expect(t, "GET", "/api/events/1/seats", "", "", 200)
 		found := false
@@ -310,6 +356,7 @@ func TestPlatform(t *testing.T) {
 		if err := h.db.QueryRow(context.Background(), "SELECT status FROM bookings WHERE id=$1", b["id"]).Scan(&state); err != nil || state != "EXPIRED" {
 			t.Fatalf("%s %v", state, err)
 		}
+		h.expectHistory(t, b, "RESERVED", "EXPIRED")
 	})
 	t.Run("checkout racing cancel has one terminal outcome", func(t *testing.T) {
 		b := h.reserve(t, 7)

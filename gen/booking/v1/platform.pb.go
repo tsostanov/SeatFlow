@@ -614,6 +614,102 @@ func (x *Booking) GetCreatedAt() string {
 	return ""
 }
 
+type BookingHistoryEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	OccurredAt    string                 `protobuf:"bytes,2,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BookingHistoryEvent) Reset() {
+	*x = BookingHistoryEvent{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BookingHistoryEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BookingHistoryEvent) ProtoMessage() {}
+
+func (x *BookingHistoryEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BookingHistoryEvent.ProtoReflect.Descriptor instead.
+func (*BookingHistoryEvent) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *BookingHistoryEvent) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BookingHistoryEvent) GetOccurredAt() string {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return ""
+}
+
+type BookingHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*BookingHistoryEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BookingHistoryResponse) Reset() {
+	*x = BookingHistoryResponse{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BookingHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BookingHistoryResponse) ProtoMessage() {}
+
+func (x *BookingHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BookingHistoryResponse.ProtoReflect.Descriptor instead.
+func (*BookingHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *BookingHistoryResponse) GetEvents() []*BookingHistoryEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
 var File_api_booking_v1_platform_proto protoreflect.FileDescriptor
 
 const file_api_booking_v1_platform_proto_rawDesc = "" +
@@ -666,19 +762,27 @@ const file_api_booking_v1_platform_proto_rawDesc = "" +
 	"priceMinor\x12\x1a\n" +
 	"\bcurrency\x18\a \x01(\tR\bcurrency\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\b \x01(\tR\tcreatedAt2\x9c\x03\n" +
+	"created_at\x18\b \x01(\tR\tcreatedAt\"N\n" +
+	"\x13BookingHistoryEvent\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x1f\n" +
+	"\voccurred_at\x18\x02 \x01(\tR\n" +
+	"occurredAt\"Q\n" +
+	"\x16BookingHistoryResponse\x127\n" +
+	"\x06events\x18\x01 \x03(\v2\x1f.booking.v1.BookingHistoryEventR\x06events2\xf1\x03\n" +
 	"\x10InventoryService\x12?\n" +
 	"\n" +
 	"ListEvents\x12\x11.booking.v1.Empty\x1a\x1e.booking.v1.ListEventsResponse\x12T\n" +
 	"\x0fGetAvailability\x12\x1f.booking.v1.AvailabilityRequest\x1a .booking.v1.AvailabilityResponse\x12:\n" +
 	"\aReserve\x12\x1a.booking.v1.ReserveRequest\x1a\x13.booking.v1.Booking\x12=\n" +
 	"\n" +
-	"GetBooking\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12:\n" +
+	"GetBooking\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12S\n" +
+	"\x11GetBookingHistory\x12\x1a.booking.v1.BookingRequest\x1a\".booking.v1.BookingHistoryResponse\x12:\n" +
 	"\aRelease\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12:\n" +
-	"\aConfirm\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking2\x82\x02\n" +
+	"\aConfirm\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking2\xcd\x02\n" +
 	"\x0eBookingService\x12?\n" +
 	"\x06Create\x12 .booking.v1.CreateBookingRequest\x1a\x13.booking.v1.Booking\x126\n" +
-	"\x03Get\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x129\n" +
+	"\x03Get\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12I\n" +
+	"\aHistory\x12\x1a.booking.v1.BookingRequest\x1a\".booking.v1.BookingHistoryResponse\x129\n" +
 	"\x06Cancel\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12<\n" +
 	"\bCheckout\x12\x1b.booking.v1.CheckoutRequest\x1a\x13.booking.v1.BookingB8Z6github.com/tsostanov/SeatFlow/gen/booking/v1;bookingv1b\x06proto3"
 
@@ -694,46 +798,53 @@ func file_api_booking_v1_platform_proto_rawDescGZIP() []byte {
 	return file_api_booking_v1_platform_proto_rawDescData
 }
 
-var file_api_booking_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_api_booking_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_api_booking_v1_platform_proto_goTypes = []any{
-	(*Empty)(nil),                // 0: booking.v1.Empty
-	(*Event)(nil),                // 1: booking.v1.Event
-	(*ListEventsResponse)(nil),   // 2: booking.v1.ListEventsResponse
-	(*AvailabilityRequest)(nil),  // 3: booking.v1.AvailabilityRequest
-	(*AvailabilityResponse)(nil), // 4: booking.v1.AvailabilityResponse
-	(*CreateBookingRequest)(nil), // 5: booking.v1.CreateBookingRequest
-	(*ReserveRequest)(nil),       // 6: booking.v1.ReserveRequest
-	(*BookingRequest)(nil),       // 7: booking.v1.BookingRequest
-	(*CheckoutRequest)(nil),      // 8: booking.v1.CheckoutRequest
-	(*Booking)(nil),              // 9: booking.v1.Booking
+	(*Empty)(nil),                  // 0: booking.v1.Empty
+	(*Event)(nil),                  // 1: booking.v1.Event
+	(*ListEventsResponse)(nil),     // 2: booking.v1.ListEventsResponse
+	(*AvailabilityRequest)(nil),    // 3: booking.v1.AvailabilityRequest
+	(*AvailabilityResponse)(nil),   // 4: booking.v1.AvailabilityResponse
+	(*CreateBookingRequest)(nil),   // 5: booking.v1.CreateBookingRequest
+	(*ReserveRequest)(nil),         // 6: booking.v1.ReserveRequest
+	(*BookingRequest)(nil),         // 7: booking.v1.BookingRequest
+	(*CheckoutRequest)(nil),        // 8: booking.v1.CheckoutRequest
+	(*Booking)(nil),                // 9: booking.v1.Booking
+	(*BookingHistoryEvent)(nil),    // 10: booking.v1.BookingHistoryEvent
+	(*BookingHistoryResponse)(nil), // 11: booking.v1.BookingHistoryResponse
 }
 var file_api_booking_v1_platform_proto_depIdxs = []int32{
 	1,  // 0: booking.v1.ListEventsResponse.events:type_name -> booking.v1.Event
-	0,  // 1: booking.v1.InventoryService.ListEvents:input_type -> booking.v1.Empty
-	3,  // 2: booking.v1.InventoryService.GetAvailability:input_type -> booking.v1.AvailabilityRequest
-	6,  // 3: booking.v1.InventoryService.Reserve:input_type -> booking.v1.ReserveRequest
-	7,  // 4: booking.v1.InventoryService.GetBooking:input_type -> booking.v1.BookingRequest
-	7,  // 5: booking.v1.InventoryService.Release:input_type -> booking.v1.BookingRequest
-	7,  // 6: booking.v1.InventoryService.Confirm:input_type -> booking.v1.BookingRequest
-	5,  // 7: booking.v1.BookingService.Create:input_type -> booking.v1.CreateBookingRequest
-	7,  // 8: booking.v1.BookingService.Get:input_type -> booking.v1.BookingRequest
-	7,  // 9: booking.v1.BookingService.Cancel:input_type -> booking.v1.BookingRequest
-	8,  // 10: booking.v1.BookingService.Checkout:input_type -> booking.v1.CheckoutRequest
-	2,  // 11: booking.v1.InventoryService.ListEvents:output_type -> booking.v1.ListEventsResponse
-	4,  // 12: booking.v1.InventoryService.GetAvailability:output_type -> booking.v1.AvailabilityResponse
-	9,  // 13: booking.v1.InventoryService.Reserve:output_type -> booking.v1.Booking
-	9,  // 14: booking.v1.InventoryService.GetBooking:output_type -> booking.v1.Booking
-	9,  // 15: booking.v1.InventoryService.Release:output_type -> booking.v1.Booking
-	9,  // 16: booking.v1.InventoryService.Confirm:output_type -> booking.v1.Booking
-	9,  // 17: booking.v1.BookingService.Create:output_type -> booking.v1.Booking
-	9,  // 18: booking.v1.BookingService.Get:output_type -> booking.v1.Booking
-	9,  // 19: booking.v1.BookingService.Cancel:output_type -> booking.v1.Booking
-	9,  // 20: booking.v1.BookingService.Checkout:output_type -> booking.v1.Booking
-	11, // [11:21] is the sub-list for method output_type
-	1,  // [1:11] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	10, // 1: booking.v1.BookingHistoryResponse.events:type_name -> booking.v1.BookingHistoryEvent
+	0,  // 2: booking.v1.InventoryService.ListEvents:input_type -> booking.v1.Empty
+	3,  // 3: booking.v1.InventoryService.GetAvailability:input_type -> booking.v1.AvailabilityRequest
+	6,  // 4: booking.v1.InventoryService.Reserve:input_type -> booking.v1.ReserveRequest
+	7,  // 5: booking.v1.InventoryService.GetBooking:input_type -> booking.v1.BookingRequest
+	7,  // 6: booking.v1.InventoryService.GetBookingHistory:input_type -> booking.v1.BookingRequest
+	7,  // 7: booking.v1.InventoryService.Release:input_type -> booking.v1.BookingRequest
+	7,  // 8: booking.v1.InventoryService.Confirm:input_type -> booking.v1.BookingRequest
+	5,  // 9: booking.v1.BookingService.Create:input_type -> booking.v1.CreateBookingRequest
+	7,  // 10: booking.v1.BookingService.Get:input_type -> booking.v1.BookingRequest
+	7,  // 11: booking.v1.BookingService.History:input_type -> booking.v1.BookingRequest
+	7,  // 12: booking.v1.BookingService.Cancel:input_type -> booking.v1.BookingRequest
+	8,  // 13: booking.v1.BookingService.Checkout:input_type -> booking.v1.CheckoutRequest
+	2,  // 14: booking.v1.InventoryService.ListEvents:output_type -> booking.v1.ListEventsResponse
+	4,  // 15: booking.v1.InventoryService.GetAvailability:output_type -> booking.v1.AvailabilityResponse
+	9,  // 16: booking.v1.InventoryService.Reserve:output_type -> booking.v1.Booking
+	9,  // 17: booking.v1.InventoryService.GetBooking:output_type -> booking.v1.Booking
+	11, // 18: booking.v1.InventoryService.GetBookingHistory:output_type -> booking.v1.BookingHistoryResponse
+	9,  // 19: booking.v1.InventoryService.Release:output_type -> booking.v1.Booking
+	9,  // 20: booking.v1.InventoryService.Confirm:output_type -> booking.v1.Booking
+	9,  // 21: booking.v1.BookingService.Create:output_type -> booking.v1.Booking
+	9,  // 22: booking.v1.BookingService.Get:output_type -> booking.v1.Booking
+	11, // 23: booking.v1.BookingService.History:output_type -> booking.v1.BookingHistoryResponse
+	9,  // 24: booking.v1.BookingService.Cancel:output_type -> booking.v1.Booking
+	9,  // 25: booking.v1.BookingService.Checkout:output_type -> booking.v1.Booking
+	14, // [14:26] is the sub-list for method output_type
+	2,  // [2:14] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_api_booking_v1_platform_proto_init() }
@@ -747,7 +858,7 @@ func file_api_booking_v1_platform_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_booking_v1_platform_proto_rawDesc), len(file_api_booking_v1_platform_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

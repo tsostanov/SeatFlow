@@ -14,6 +14,8 @@ const state = {
   available: new Set(),
   seatStream: null,
   streamEvent: null,
+  history: null,
+  historyKey: null,
 };
 let session;
 const linkedTicketID = ticketIDFromURL(window.location.href);
@@ -35,6 +37,12 @@ const hints = {
   SOLD: "Сохраните ID — по нему можно снова открыть билет.",
   CANCELLED: "Место снова доступно. Можно выбрать другое событие или место.",
   EXPIRED: "Место освобождено. Если оно ещё доступно, создайте новую бронь.",
+};
+const historyLabels = {
+  RESERVED: "Место забронировано",
+  SOLD: "Билет оплачен",
+  CANCELLED: "Бронь отменена",
+  EXPIRED: "Время брони истекло",
 };
 const money = (minor, currency) =>
   new Intl.NumberFormat("ru-RU", {
@@ -329,6 +337,51 @@ function renderBooking() {
   controls();
 }
 
+function renderHistory() {
+  const list = $("booking-history");
+  list.replaceChildren();
+  if (state.history === null) {
+    const item = document.createElement("li");
+    item.className = "history-loading";
+    item.textContent = "Обновляем историю…";
+    list.append(item);
+    return;
+  }
+  if (!state.history.length) {
+    const item = document.createElement("li");
+    item.className = "history-loading";
+    item.textContent = "История временно недоступна";
+    list.append(item);
+    return;
+  }
+  for (const event of state.history) {
+    const item = document.createElement("li");
+    item.dataset.state = event.status;
+    const label = document.createElement("strong");
+    label.textContent = historyLabels[event.status] || event.status;
+    const occurred = document.createElement("time");
+    occurred.dateTime = event.occurred_at;
+    occurred.textContent = date(event.occurred_at);
+    item.append(label, occurred);
+    list.append(item);
+  }
+  list.lastElementChild?.classList.add("current");
+}
+
+async function loadHistory(bookingID, key) {
+  try {
+    const data = await api(`/bookings/${bookingID}/history`);
+    if (state.historyKey !== key) return;
+    state.history = Array.isArray(data.events) ? data.events : [];
+    renderHistory();
+  } catch {
+    if (state.historyKey !== key) return;
+    state.history = [];
+    state.historyKey = null;
+    renderHistory();
+  }
+}
+
 function acceptBooking(booking, selectEvent = false) {
   state.current = booking;
   if (selectEvent && state.events.some((e) => e.id === booking.event_id)) {
@@ -336,6 +389,13 @@ function acceptBooking(booking, selectEvent = false) {
     eventDetails();
   }
   renderBooking();
+  const key = `${booking.id}:${booking.status}`;
+  if (state.historyKey !== key) {
+    state.historyKey = key;
+    state.history = null;
+    renderHistory();
+    void loadHistory(booking.id, key);
+  }
 }
 
 function tick() {

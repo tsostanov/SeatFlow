@@ -60,6 +60,7 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 	mux.HandleFunc("GET /api/events/{event}/seats", h.seats)
 	mux.HandleFunc("POST /api/bookings", h.create)
 	mux.HandleFunc("GET /api/bookings/{id}", h.get)
+	mux.HandleFunc("GET /api/bookings/{id}/history", h.history)
 	mux.HandleFunc("DELETE /api/bookings/{id}", h.cancel)
 	mux.HandleFunc("POST /api/bookings/{id}/checkout", h.checkout)
 	root := http.NewServeMux()
@@ -247,6 +248,11 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	result, err := h.booking.Get(r.Context(), &pb.BookingRequest{BookingId: r.PathValue("id")})
+	respond(w, result, err)
+}
+
+func (h *Handler) history(w http.ResponseWriter, r *http.Request) {
+	result, err := h.booking.History(r.Context(), &pb.BookingRequest{BookingId: r.PathValue("id")})
 	respond(w, result, err)
 }
 

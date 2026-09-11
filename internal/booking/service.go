@@ -35,6 +35,10 @@ func (s *Service) Get(ctx context.Context, r *pb.BookingRequest) (*pb.Booking, e
 	return s.inventory.GetBooking(ctx, r)
 }
 
+func (s *Service) History(ctx context.Context, r *pb.BookingRequest) (*pb.BookingHistoryResponse, error) {
+	return s.inventory.GetBookingHistory(ctx, r)
+}
+
 func (s *Service) Cancel(ctx context.Context, r *pb.BookingRequest) (*pb.Booking, error) {
 	return s.inventory.Release(ctx, r)
 }
