@@ -63,4 +63,10 @@ while request("GET", f"/api/bookings/{booking['id']}")["status"] == "RESERVED":
     assert time.monotonic() < deadline, "Expected a short TTL; run the disposable stack with BOOKING_TTL=5s"
     time.sleep(0.25)
 assert str(seat_id) in request("GET", f"/api/events/{event_id}/seats")["available_seat_ids"]
-print("PASS: Compose readiness, assets, idempotency, conflict, history, decline, cancel, checkout, expiry")
+metrics = request("GET", "/metrics")
+assert b"seatflow_http_requests_total" in metrics
+assert b'route="POST /api/bookings"' not in metrics
+assert b'route="/api/bookings"' in metrics
+assert b"seatflow_http_request_duration_seconds_bucket" in metrics
+assert b"seatflow_sse_connections_active" in metrics
+print("PASS: Compose readiness, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")

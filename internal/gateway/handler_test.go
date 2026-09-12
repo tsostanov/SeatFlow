@@ -73,6 +73,34 @@ func TestInternalErrorsDoNotLeakDetails(t *testing.T) {
 	}
 }
 
+func TestMetricsUseRoutePatternsAndExcludeScrapes(t *testing.T) {
+	handler := New(nil, nil, func(context.Context) error { return nil })
+	for _, path := range []string{"/healthz", "/not-found"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+	}
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := w.Body.String()
+	for _, want := range []string{
+		`seatflow_http_requests_total{method="GET",route="/healthz",status="200"} 1`,
+		`seatflow_http_requests_total{method="GET",route="unmatched",status="404"} 1`,
+		`seatflow_http_request_duration_seconds_count{method="GET",route="/healthz"} 1`,
+		`seatflow_sse_connections_active 0`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("metrics missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `route="/metrics"`) {
+		t.Fatalf("metrics endpoint observed itself:\n%s", body)
+	}
+	if got := w.Header().Get("Content-Type"); got != "text/plain; version=0.0.4; charset=utf-8" {
+		t.Fatalf("content type=%q", got)
+	}
+}
+
 func TestSeatStreamPublishesAvailabilityChanges(t *testing.T) {
 	client := &availabilityClient{responses: make(chan *pb.AvailabilityResponse, 2)}
 	client.responses <- &pb.AvailabilityResponse{SeatIds: []int64{1, 2}, AvailableSeatIds: []int64{1, 2}}

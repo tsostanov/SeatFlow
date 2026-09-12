@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
@@ -25,10 +26,11 @@ type Handler struct {
 	booking   pb.BookingServiceClient
 	inventory pb.InventoryServiceClient
 	ready     func(context.Context) error
+	metrics   *httpMetrics
 }
 
 func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, ready func(context.Context) error) http.Handler {
-	h := &Handler{booking: booking, inventory: inventory, ready: ready}
+	h := &Handler{booking: booking, inventory: inventory, ready: ready, metrics: newHTTPMetrics()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -57,6 +59,7 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		}
 		w.Write([]byte("ready\n"))
 	})
+	mux.HandleFunc("GET /metrics", h.metrics.serveHTTP)
 	mux.HandleFunc("GET /api/events", h.events)
 	mux.HandleFunc("GET /api/events/{event}/seats", h.seats)
 	mux.HandleFunc("POST /api/bookings", h.create)
@@ -65,11 +68,29 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 	mux.HandleFunc("DELETE /api/bookings/{id}", h.cancel)
 	mux.HandleFunc("POST /api/bookings/{id}/checkout", h.checkout)
 	root := http.NewServeMux()
-	root.HandleFunc("GET /api/events/{event}/seats/stream", h.seatStream)
+	root.HandleFunc("GET /api/events/{event}/seats/stream", func(w http.ResponseWriter, r *http.Request) {
+		observed := &statusResponseWriter{ResponseWriter: w}
+		started := time.Now()
+		h.seatStream(observed, r)
+		h.metrics.observe(r.Method, "/api/events/{event}/seats/stream", observed.statusCode(), time.Since(started))
+	})
 	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
-		mux.ServeHTTP(w, r.WithContext(ctx))
+		request := r.WithContext(ctx)
+		observed := &statusResponseWriter{ResponseWriter: w}
+		started := time.Now()
+		mux.ServeHTTP(observed, request)
+		if request.Pattern != "GET /metrics" {
+			route := request.Pattern
+			if _, path, found := strings.Cut(route, " "); found {
+				route = path
+			}
+			if route == "" {
+				route = "unmatched"
+			}
+			h.metrics.observe(r.Method, route, observed.statusCode(), time.Since(started))
+		}
 	}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -182,6 +203,8 @@ func (h *Handler) seatStream(w http.ResponseWriter, r *http.Request) {
 		respond(w, initial, err)
 		return
 	}
+	closeMetric := h.metrics.openStream()
+	defer closeMetric()
 
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
