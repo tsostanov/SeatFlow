@@ -15,6 +15,7 @@ import (
 
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
 	"github.com/tsostanov/SeatFlow/internal/platform"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -25,14 +26,16 @@ import (
 var web embed.FS
 
 type Handler struct {
-	booking   pb.BookingServiceClient
-	inventory pb.InventoryServiceClient
-	ready     func(context.Context) error
-	metrics   *httpMetrics
+	booking       pb.BookingServiceClient
+	inventory     pb.InventoryServiceClient
+	payment       pb.PaymentServiceClient
+	notifications pb.NotificationServiceClient
+	ready         func(context.Context) error
+	metrics       *httpMetrics
 }
 
-func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, ready func(context.Context) error) http.Handler {
-	h := &Handler{booking: booking, inventory: inventory, ready: ready, metrics: newHTTPMetrics()}
+func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, payment pb.PaymentServiceClient, notifications pb.NotificationServiceClient, ready func(context.Context) error) http.Handler {
+	h := &Handler{booking: booking, inventory: inventory, payment: payment, notifications: notifications, ready: ready, metrics: newHTTPMetrics()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -67,6 +70,8 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 	mux.HandleFunc("POST /api/bookings", h.create)
 	mux.HandleFunc("GET /api/bookings/{id}", h.get)
 	mux.HandleFunc("GET /api/bookings/{id}/history", h.history)
+	mux.HandleFunc("GET /api/bookings/{id}/payment", h.paymentDetails)
+	mux.HandleFunc("GET /api/bookings/{id}/notifications", h.notificationList)
 	mux.HandleFunc("DELETE /api/bookings/{id}", h.cancel)
 	mux.HandleFunc("POST /api/bookings/{id}/checkout", h.checkout)
 	root := http.NewServeMux()
@@ -163,9 +168,16 @@ func fail(w http.ResponseWriter, err error) {
 	if code >= 500 {
 		message = http.StatusText(code)
 	}
+	payload := map[string]string{"error": message, "code": status.Code(err).String()}
+	for _, detail := range status.Convert(err).Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Reason != "" {
+			payload["reason"] = info.Reason
+			break
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": message, "code": status.Code(err).String()})
+	json.NewEncoder(w).Encode(payload)
 }
 
 func decode(w http.ResponseWriter, r *http.Request, target any) bool {
@@ -217,12 +229,12 @@ func (h *Handler) seatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fetch := func() (*pb.AvailabilityResponse, error) {
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-		return h.inventory.GetAvailability(ctx, &pb.AvailabilityRequest{EventId: id})
+	stream, err := h.inventory.WatchAvailability(r.Context(), &pb.AvailabilityRequest{EventId: id})
+	if err != nil {
+		fail(w, err)
+		return
 	}
-	initial, err := fetch()
+	initial, err := stream.Recv()
 	if err != nil {
 		respond(w, initial, err)
 		return
@@ -260,17 +272,32 @@ func (h *Handler) seatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updates := time.NewTicker(time.Second)
+	type availabilityUpdate struct {
+		value *pb.AvailabilityResponse
+		err   error
+	}
+	updates := make(chan availabilityUpdate, 1)
+	go func() {
+		for {
+			value, err := stream.Recv()
+			select {
+			case updates <- availabilityUpdate{value: value, err: err}:
+			case <-r.Context().Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
 	keepAlive := time.NewTicker(15 * time.Second)
-	defer updates.Stop()
 	defer keepAlive.Stop()
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-updates.C:
-			value, err := fetch()
-			if err != nil || send(value) != nil {
+		case update := <-updates:
+			if update.err != nil || send(update.value) != nil {
 				return
 			}
 		case <-keepAlive.C:
@@ -301,6 +328,20 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) history(w http.ResponseWriter, r *http.Request) {
 	result, err := h.booking.History(r.Context(), &pb.BookingRequest{BookingId: r.PathValue("id")})
+	respond(w, result, err)
+}
+
+func (h *Handler) paymentDetails(w http.ResponseWriter, r *http.Request) {
+	result, err := h.payment.Get(r.Context(), &pb.PaymentLookupRequest{BookingId: r.PathValue("id")})
+	respond(w, result, err)
+}
+
+func (h *Handler) notificationList(w http.ResponseWriter, r *http.Request) {
+	if _, err := h.booking.Get(r.Context(), &pb.BookingRequest{BookingId: r.PathValue("id")}); err != nil {
+		fail(w, err)
+		return
+	}
+	result, err := h.notifications.List(r.Context(), &pb.BookingRequest{BookingId: r.PathValue("id")})
 	respond(w, result, err)
 }
 

@@ -14,6 +14,7 @@ import (
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
 	"github.com/tsostanov/SeatFlow/internal/gateway"
 	"github.com/tsostanov/SeatFlow/internal/platform"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -36,11 +37,23 @@ func run() error {
 		return err
 	}
 	defer booking.Close()
-	handler := gateway.New(pb.NewBookingServiceClient(booking), pb.NewInventoryServiceClient(inventory), func(ctx context.Context) error {
-		if err := platform.CheckConnection(ctx, inventory); err != nil {
-			return err
+	payment, err := platform.Connect(platform.Env("PAYMENT_ADDR", "localhost:50053"))
+	if err != nil {
+		return err
+	}
+	defer payment.Close()
+	notifications, err := platform.Connect(platform.Env("NOTIFICATION_ADDR", "localhost:50054"))
+	if err != nil {
+		return err
+	}
+	defer notifications.Close()
+	handler := gateway.New(pb.NewBookingServiceClient(booking), pb.NewInventoryServiceClient(inventory), pb.NewPaymentServiceClient(payment), pb.NewNotificationServiceClient(notifications), func(ctx context.Context) error {
+		for _, conn := range []*grpc.ClientConn{inventory, booking, payment, notifications} {
+			if err := platform.CheckConnection(ctx, conn); err != nil {
+				return err
+			}
 		}
-		return platform.CheckConnection(ctx, booking)
+		return nil
 	})
 	server := &http.Server{
 		Addr:              platform.Env("HTTP_ADDR", "127.0.0.1:8080"),

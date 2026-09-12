@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
+	"github.com/tsostanov/SeatFlow/internal/platform"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,17 +26,27 @@ type availabilityClient struct {
 	responses chan *pb.AvailabilityResponse
 }
 
-func (c *availabilityClient) GetAvailability(ctx context.Context, _ *pb.AvailabilityRequest, _ ...grpc.CallOption) (*pb.AvailabilityResponse, error) {
+type availabilityStream struct {
+	grpc.ClientStream
+	ctx       context.Context
+	responses <-chan *pb.AvailabilityResponse
+}
+
+func (s *availabilityStream) Recv() (*pb.AvailabilityResponse, error) {
 	select {
-	case response := <-c.responses:
+	case response := <-s.responses:
 		return response, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	case <-s.ctx.Done():
+		return nil, s.ctx.Err()
 	}
 }
 
+func (c *availabilityClient) WatchAvailability(ctx context.Context, _ *pb.AvailabilityRequest, _ ...grpc.CallOption) (grpc.ServerStreamingClient[pb.AvailabilityResponse], error) {
+	return &availabilityStream{ctx: ctx, responses: c.responses}, nil
+}
+
 func TestEmbeddedWebAssets(t *testing.T) {
-	handler := New(nil, nil, func(context.Context) error { return nil })
+	handler := New(nil, nil, nil, nil, func(context.Context) error { return nil })
 	for _, tc := range []struct{ path, contentType, contains string }{
 		{"/", "text/html", "SeatFlow"},
 		{"/app.js", "text/javascript", "BookingSession"},
@@ -56,7 +67,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 }
 
 func TestSecurityHeaders(t *testing.T) {
-	handler := New(nil, nil, func(context.Context) error { return nil })
+	handler := New(nil, nil, nil, nil, func(context.Context) error { return nil })
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -96,8 +107,20 @@ func TestInternalErrorsDoNotLeakDetails(t *testing.T) {
 	}
 }
 
+func TestRichGRPCErrorReasonIsExposed(t *testing.T) {
+	w := httptest.NewRecorder()
+	fail(w, platform.Error(codes.AlreadyExists, "seat is unavailable", "SEAT_UNAVAILABLE", nil))
+	var body map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != http.StatusConflict || body["code"] != "AlreadyExists" || body["reason"] != "SEAT_UNAVAILABLE" {
+		t.Fatalf("status=%d body=%v", w.Code, body)
+	}
+}
+
 func TestMetricsUseRoutePatternsAndExcludeScrapes(t *testing.T) {
-	handler := New(nil, nil, func(context.Context) error { return nil })
+	handler := New(nil, nil, nil, nil, func(context.Context) error { return nil })
 	for _, path := range []string{"/healthz", "/not-found"} {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
@@ -130,7 +153,7 @@ func TestRequestIDIsValidatedAndLogged(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
-	handler := New(nil, nil, func(context.Context) error { return nil })
+	handler := New(nil, nil, nil, nil, func(context.Context) error { return nil })
 	validID := "C73A33C3-8DB7-4AC4-80D1-10A04705DA7E"
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -161,7 +184,7 @@ func TestRequestIDIsValidatedAndLogged(t *testing.T) {
 func TestSeatStreamPublishesAvailabilityChanges(t *testing.T) {
 	client := &availabilityClient{responses: make(chan *pb.AvailabilityResponse, 2)}
 	client.responses <- &pb.AvailabilityResponse{SeatIds: []int64{1, 2}, AvailableSeatIds: []int64{1, 2}}
-	server := httptest.NewServer(New(nil, client, func(context.Context) error { return nil }))
+	server := httptest.NewServer(New(nil, client, nil, nil, func(context.Context) error { return nil }))
 	t.Cleanup(server.Close)
 
 	ctx, cancel := context.WithCancel(context.Background())

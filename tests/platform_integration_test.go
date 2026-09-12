@@ -23,6 +23,8 @@ import (
 	"github.com/tsostanov/SeatFlow/internal/booking"
 	"github.com/tsostanov/SeatFlow/internal/gateway"
 	"github.com/tsostanov/SeatFlow/internal/inventory"
+	"github.com/tsostanov/SeatFlow/internal/notification"
+	"github.com/tsostanov/SeatFlow/internal/payment"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -73,10 +75,20 @@ func setup(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	ic := grpcClient(t, func(s *grpc.Server) { pb.RegisterInventoryServiceServer(s, inv) })
+	pay, err := payment.New(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc := grpcClient(t, func(s *grpc.Server) { pb.RegisterPaymentServiceServer(s, pay) })
+	notify, err := notification.New(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nc := grpcClient(t, func(s *grpc.Server) { pb.RegisterNotificationServiceServer(s, notify) })
 	bc := grpcClient(t, func(s *grpc.Server) {
-		pb.RegisterBookingServiceServer(s, booking.New(pb.NewInventoryServiceClient(ic), 10*time.Minute))
+		pb.RegisterBookingServiceServer(s, booking.New(pb.NewInventoryServiceClient(ic), pb.NewPaymentServiceClient(pc), pb.NewNotificationServiceClient(nc), 10*time.Minute))
 	})
-	server := httptest.NewServer(gateway.New(pb.NewBookingServiceClient(bc), pb.NewInventoryServiceClient(ic), func(context.Context) error { return db.Ping(ctx) }))
+	server := httptest.NewServer(gateway.New(pb.NewBookingServiceClient(bc), pb.NewInventoryServiceClient(ic), pb.NewPaymentServiceClient(pc), pb.NewNotificationServiceClient(nc), func(context.Context) error { return db.Ping(ctx) }))
 	t.Cleanup(server.Close)
 	return &harness{url: server.URL, db: db, inventory: inv, client: &http.Client{Timeout: 10 * time.Second}}
 }
@@ -198,6 +210,8 @@ func TestPlatform(t *testing.T) {
 		h.expect(t, "GET", "/api/bookings/not-a-uuid/history", "", "", 400)
 		h.expect(t, "GET", "/api/bookings/"+uuid.NewString()+"/history", "", "", 404)
 		h.expect(t, "GET", "/api/bookings/"+uuid.NewString(), "", "", 404)
+		h.expect(t, "GET", "/api/bookings/not-a-uuid/payment", "", "", 400)
+		h.expect(t, "GET", "/api/bookings/"+uuid.NewString()+"/notifications", "", "", 404)
 		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":1}`, "", 400)
 		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":1,"unknown":true}`, uuid.NewString(), 400)
 		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":1} {}`, uuid.NewString(), 400)
@@ -278,14 +292,29 @@ func TestPlatform(t *testing.T) {
 				t.Fatal(sold)
 			}
 		}
+		paid := h.expect(t, "GET", path(b)+"/payment", "", "", 200)
+		if paid["status"] != "SUCCEEDED" || paid["booking_id"] != b["id"] || paid["amount_minor"] != b["price_minor"] {
+			t.Fatal(paid)
+		}
+		notifications := h.expect(t, "GET", path(b)+"/notifications", "", "", 200)["notifications"].([]any)
+		if len(notifications) != 2 || notifications[0].(map[string]any)["event_type"] != "RESERVED" || notifications[1].(map[string]any)["event_type"] != "SOLD" {
+			t.Fatalf("unexpected notifications: %v", notifications)
+		}
 		h.expect(t, "DELETE", path(b), "", "", 409)
-		h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":3}`, uuid.NewString(), 409)
+		conflict := h.expect(t, "POST", "/api/bookings", `{"event_id":1,"seat_id":3}`, uuid.NewString(), 409)
+		if conflict["reason"] != "SEAT_UNAVAILABLE" {
+			t.Fatal(conflict)
+		}
 		c := h.reserve(t, 4)
 		for i := 0; i < 2; i++ {
 			cancelled := h.expect(t, "DELETE", path(c), "", "", 200)
 			if cancelled["status"] != "CANCELLED" {
 				t.Fatal(cancelled)
 			}
+		}
+		cancelNotifications := h.expect(t, "GET", path(c)+"/notifications", "", "", 200)["notifications"].([]any)
+		if len(cancelNotifications) != 2 || cancelNotifications[1].(map[string]any)["event_type"] != "CANCELLED" {
+			t.Fatalf("unexpected cancellation notifications: %v", cancelNotifications)
 		}
 		next := h.reserve(t, 4)
 		h.expect(t, "DELETE", path(c), "", "", 200)

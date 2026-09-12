@@ -51,17 +51,23 @@ body = {"event_id": event_id, "seat_id": seat_id}
 key = str(uuid.uuid4())
 booking = request("POST", "/api/bookings", body, key)
 assert request("POST", "/api/bookings", body, key)["id"] == booking["id"]
-request("POST", "/api/bookings", body, str(uuid.uuid4()), expected=409)
+conflict = request("POST", "/api/bookings", body, str(uuid.uuid4()), expected=409)
+assert conflict["reason"] == "SEAT_UNAVAILABLE"
 path = f"/api/bookings/{booking['id']}"
-request("POST", path + "/checkout", {"payment_result": "fail"}, expected=409)
+decline = request("POST", path + "/checkout", {"payment_result": "fail"}, expected=409)
+assert decline["reason"] == "PAYMENT_DECLINED"
 assert request("GET", path)["status"] == "RESERVED"
+assert request("GET", path + "/payment")["status"] == "DECLINED"
 assert request("DELETE", path)["status"] == "CANCELLED"
 assert [event["status"] for event in request("GET", path + "/history")["events"]] == ["RESERVED", "CANCELLED"]
+assert [event["event_type"] for event in request("GET", path + "/notifications")["notifications"]] == ["RESERVED", "CANCELLED"]
 booking = request("POST", "/api/bookings", body, str(uuid.uuid4()))
 path = f"/api/bookings/{booking['id']}"
 assert request("POST", path + "/checkout", {"payment_result": "success"})["status"] == "SOLD"
 assert request("POST", path + "/checkout", {"payment_result": "success"})["status"] == "SOLD"
+assert request("GET", path + "/payment")["status"] == "SUCCEEDED"
 assert [event["status"] for event in request("GET", path + "/history")["events"]] == ["RESERVED", "SOLD"]
+assert [event["event_type"] for event in request("GET", path + "/notifications")["notifications"]] == ["RESERVED", "SOLD"]
 request("DELETE", path, expected=409)
 
 # CI sets BOOKING_TTL=5s. Verify the worker and the configured TTL through TCP.
@@ -78,4 +84,4 @@ assert b'route="POST /api/bookings"' not in metrics
 assert b'route="/api/bookings"' in metrics
 assert b"seatflow_http_request_duration_seconds_bucket" in metrics
 assert b"seatflow_sse_connections_active" in metrics
-print("PASS: Compose readiness, security headers, request IDs, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")
+print("PASS: Compose readiness, security, request IDs, metrics, idempotency, payments, notifications, conflict, history, cancel, checkout, expiry")

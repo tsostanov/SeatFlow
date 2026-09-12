@@ -5,12 +5,17 @@ import (
 	_ "embed"
 	"errors"
 	"log/slog"
+	"slices"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
+	"github.com/tsostanov/SeatFlow/internal/platform"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -23,7 +28,21 @@ var seed string
 
 type Service struct {
 	pb.UnimplementedInventoryServiceServer
-	db *pgxpool.Pool
+	db       *pgxpool.Pool
+	watchMu  sync.Mutex
+	watchers map[int64]*availabilityHub
+}
+
+type availabilityUpdate struct {
+	value *pb.AvailabilityResponse
+	err   error
+}
+
+type availabilityHub struct {
+	current     *pb.AvailabilityResponse
+	subscribers map[chan availabilityUpdate]struct{}
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func New(ctx context.Context, db *pgxpool.Pool, seedDemo bool) (*Service, error) {
@@ -47,7 +66,7 @@ func New(ctx context.Context, db *pgxpool.Pool, seedDemo bool) (*Service, error)
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return &Service{db: db}, nil
+	return &Service{db: db, watchers: make(map[int64]*availabilityHub)}, nil
 }
 
 func dbError(err error) error {
@@ -143,6 +162,120 @@ func (s *Service) GetAvailability(ctx context.Context, r *pb.AvailabilityRequest
 	return result, nil
 }
 
+func (s *Service) WatchAvailability(r *pb.AvailabilityRequest, stream grpc.ServerStreamingServer[pb.AvailabilityResponse]) error {
+	initial, err := s.GetAvailability(stream.Context(), r)
+	if err != nil {
+		return err
+	}
+	updates, unsubscribe := s.subscribeAvailability(r.EventId, initial)
+	defer unsubscribe()
+	for {
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		case update, ok := <-updates:
+			if !ok {
+				return nil
+			}
+			if update.err != nil {
+				return update.err
+			}
+			if err := stream.Send(update.value); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (s *Service) subscribeAvailability(eventID int64, initial *pb.AvailabilityResponse) (<-chan availabilityUpdate, func()) {
+	s.watchMu.Lock()
+	hub := s.watchers[eventID]
+	if hub == nil {
+		hubCtx, cancel := context.WithCancel(context.Background())
+		hub = &availabilityHub{
+			current: initial, subscribers: make(map[chan availabilityUpdate]struct{}), ctx: hubCtx, cancel: cancel,
+		}
+		s.watchers[eventID] = hub
+		go s.runAvailabilityHub(eventID, hub)
+	}
+	updates := make(chan availabilityUpdate, 1)
+	hub.subscribers[updates] = struct{}{}
+	updates <- availabilityUpdate{value: hub.current}
+	s.watchMu.Unlock()
+
+	var once sync.Once
+	return updates, func() {
+		once.Do(func() {
+			s.watchMu.Lock()
+			defer s.watchMu.Unlock()
+			delete(hub.subscribers, updates)
+			if len(hub.subscribers) == 0 && s.watchers[eventID] == hub {
+				delete(s.watchers, eventID)
+				hub.cancel()
+			}
+		})
+	}
+}
+
+func (s *Service) runAvailabilityHub(eventID int64, hub *availabilityHub) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-hub.ctx.Done():
+			return
+		case <-ticker.C:
+			next, err := s.GetAvailability(hub.ctx, &pb.AvailabilityRequest{EventId: eventID})
+			if err != nil {
+				if hub.ctx.Err() == nil {
+					s.closeAvailabilityHub(eventID, hub, err)
+				}
+				return
+			}
+			s.publishAvailability(eventID, hub, next)
+		}
+	}
+}
+
+func (s *Service) publishAvailability(eventID int64, hub *availabilityHub, next *pb.AvailabilityResponse) {
+	s.watchMu.Lock()
+	defer s.watchMu.Unlock()
+	if s.watchers[eventID] != hub || (slices.Equal(hub.current.SeatIds, next.SeatIds) && slices.Equal(hub.current.AvailableSeatIds, next.AvailableSeatIds)) {
+		return
+	}
+	hub.current = next
+	for subscriber := range hub.subscribers {
+		// Availability is a snapshot: a slow client needs only the newest value.
+		select {
+		case subscriber <- availabilityUpdate{value: next}:
+		default:
+			select {
+			case <-subscriber:
+			default:
+			}
+			subscriber <- availabilityUpdate{value: next}
+		}
+	}
+}
+
+func (s *Service) closeAvailabilityHub(eventID int64, hub *availabilityHub, err error) {
+	s.watchMu.Lock()
+	defer s.watchMu.Unlock()
+	if s.watchers[eventID] != hub {
+		return
+	}
+	delete(s.watchers, eventID)
+	for subscriber := range hub.subscribers {
+		select {
+		case <-subscriber:
+		default:
+		}
+		subscriber <- availabilityUpdate{err: err}
+		close(subscriber)
+	}
+	hub.cancel()
+}
+
 func (s *Service) Reserve(ctx context.Context, r *pb.ReserveRequest) (*pb.Booking, error) {
 	if r.EventId <= 0 || r.SeatId <= 0 || !validID(r.BookingId) || !validID(r.IdempotencyKey) || r.TtlSeconds < 1 || r.TtlSeconds > 86400 {
 		return nil, status.Error(codes.InvalidArgument, "positive event_id/seat_id, UUID identifiers and TTL 1..86400 required")
@@ -160,7 +293,7 @@ func (s *Service) Reserve(ctx context.Context, r *pb.ReserveRequest) (*pb.Bookin
 	existing, err := scanBooking(tx.QueryRow(ctx, "SELECT "+bookingColumns+" FROM bookings WHERE idempotency_key=$1", key))
 	if err == nil {
 		if existing.EventId != r.EventId || existing.SeatId != r.SeatId {
-			return nil, status.Error(codes.AlreadyExists, "idempotency key was used with another request")
+			return nil, platform.Error(codes.AlreadyExists, "idempotency key was used with another request", "IDEMPOTENCY_KEY_REUSED", nil)
 		}
 		return existing, nil
 	}
@@ -184,7 +317,9 @@ func (s *Service) Reserve(ctx context.Context, r *pb.ReserveRequest) (*pb.Bookin
 		return nil, dbError(err)
 	}
 	if taken {
-		return nil, status.Error(codes.AlreadyExists, "seat is unavailable")
+		return nil, platform.Error(codes.AlreadyExists, "seat is unavailable", "SEAT_UNAVAILABLE", map[string]string{
+			"event_id": strconv.FormatInt(r.EventId, 10), "seat_id": strconv.FormatInt(r.SeatId, 10),
+		})
 	}
 	b, err := scanBooking(tx.QueryRow(ctx, `INSERT INTO bookings(id, idempotency_key, event_id, seat_id, status, expires_at, price_minor, currency)
  SELECT $1,$2,$3,$4,'RESERVED',clock_timestamp()+make_interval(secs => $5),price_minor,currency FROM events WHERE id=$3

@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	InventoryService_ListEvents_FullMethodName        = "/booking.v1.InventoryService/ListEvents"
 	InventoryService_GetAvailability_FullMethodName   = "/booking.v1.InventoryService/GetAvailability"
+	InventoryService_WatchAvailability_FullMethodName = "/booking.v1.InventoryService/WatchAvailability"
 	InventoryService_Reserve_FullMethodName           = "/booking.v1.InventoryService/Reserve"
 	InventoryService_GetBooking_FullMethodName        = "/booking.v1.InventoryService/GetBooking"
 	InventoryService_GetBookingHistory_FullMethodName = "/booking.v1.InventoryService/GetBookingHistory"
@@ -34,6 +35,7 @@ const (
 type InventoryServiceClient interface {
 	ListEvents(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListEventsResponse, error)
 	GetAvailability(ctx context.Context, in *AvailabilityRequest, opts ...grpc.CallOption) (*AvailabilityResponse, error)
+	WatchAvailability(ctx context.Context, in *AvailabilityRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AvailabilityResponse], error)
 	Reserve(ctx context.Context, in *ReserveRequest, opts ...grpc.CallOption) (*Booking, error)
 	GetBooking(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*Booking, error)
 	GetBookingHistory(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*BookingHistoryResponse, error)
@@ -68,6 +70,25 @@ func (c *inventoryServiceClient) GetAvailability(ctx context.Context, in *Availa
 	}
 	return out, nil
 }
+
+func (c *inventoryServiceClient) WatchAvailability(ctx context.Context, in *AvailabilityRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AvailabilityResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &InventoryService_ServiceDesc.Streams[0], InventoryService_WatchAvailability_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[AvailabilityRequest, AvailabilityResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type InventoryService_WatchAvailabilityClient = grpc.ServerStreamingClient[AvailabilityResponse]
 
 func (c *inventoryServiceClient) Reserve(ctx context.Context, in *ReserveRequest, opts ...grpc.CallOption) (*Booking, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -125,6 +146,7 @@ func (c *inventoryServiceClient) Confirm(ctx context.Context, in *BookingRequest
 type InventoryServiceServer interface {
 	ListEvents(context.Context, *Empty) (*ListEventsResponse, error)
 	GetAvailability(context.Context, *AvailabilityRequest) (*AvailabilityResponse, error)
+	WatchAvailability(*AvailabilityRequest, grpc.ServerStreamingServer[AvailabilityResponse]) error
 	Reserve(context.Context, *ReserveRequest) (*Booking, error)
 	GetBooking(context.Context, *BookingRequest) (*Booking, error)
 	GetBookingHistory(context.Context, *BookingRequest) (*BookingHistoryResponse, error)
@@ -145,6 +167,9 @@ func (UnimplementedInventoryServiceServer) ListEvents(context.Context, *Empty) (
 }
 func (UnimplementedInventoryServiceServer) GetAvailability(context.Context, *AvailabilityRequest) (*AvailabilityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAvailability not implemented")
+}
+func (UnimplementedInventoryServiceServer) WatchAvailability(*AvailabilityRequest, grpc.ServerStreamingServer[AvailabilityResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method WatchAvailability not implemented")
 }
 func (UnimplementedInventoryServiceServer) Reserve(context.Context, *ReserveRequest) (*Booking, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reserve not implemented")
@@ -217,6 +242,17 @@ func _InventoryService_GetAvailability_Handler(srv interface{}, ctx context.Cont
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _InventoryService_WatchAvailability_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AvailabilityRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(InventoryServiceServer).WatchAvailability(m, &grpc.GenericServerStream[AvailabilityRequest, AvailabilityResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type InventoryService_WatchAvailabilityServer = grpc.ServerStreamingServer[AvailabilityResponse]
 
 func _InventoryService_Reserve_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReserveRequest)
@@ -344,7 +380,13 @@ var InventoryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InventoryService_Confirm_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "WatchAvailability",
+			Handler:       _InventoryService_WatchAvailability_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "api/booking/v1/platform.proto",
 }
 
@@ -598,6 +640,324 @@ var BookingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Checkout",
 			Handler:    _BookingService_Checkout_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/booking/v1/platform.proto",
+}
+
+const (
+	PaymentService_Process_FullMethodName = "/booking.v1.PaymentService/Process"
+	PaymentService_Get_FullMethodName     = "/booking.v1.PaymentService/Get"
+	PaymentService_Refund_FullMethodName  = "/booking.v1.PaymentService/Refund"
+)
+
+// PaymentServiceClient is the client API for PaymentService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PaymentServiceClient interface {
+	Process(ctx context.Context, in *PaymentRequest, opts ...grpc.CallOption) (*Payment, error)
+	Get(ctx context.Context, in *PaymentLookupRequest, opts ...grpc.CallOption) (*Payment, error)
+	Refund(ctx context.Context, in *PaymentLookupRequest, opts ...grpc.CallOption) (*Payment, error)
+}
+
+type paymentServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPaymentServiceClient(cc grpc.ClientConnInterface) PaymentServiceClient {
+	return &paymentServiceClient{cc}
+}
+
+func (c *paymentServiceClient) Process(ctx context.Context, in *PaymentRequest, opts ...grpc.CallOption) (*Payment, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Payment)
+	err := c.cc.Invoke(ctx, PaymentService_Process_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentServiceClient) Get(ctx context.Context, in *PaymentLookupRequest, opts ...grpc.CallOption) (*Payment, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Payment)
+	err := c.cc.Invoke(ctx, PaymentService_Get_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paymentServiceClient) Refund(ctx context.Context, in *PaymentLookupRequest, opts ...grpc.CallOption) (*Payment, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Payment)
+	err := c.cc.Invoke(ctx, PaymentService_Refund_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PaymentServiceServer is the server API for PaymentService service.
+// All implementations must embed UnimplementedPaymentServiceServer
+// for forward compatibility.
+type PaymentServiceServer interface {
+	Process(context.Context, *PaymentRequest) (*Payment, error)
+	Get(context.Context, *PaymentLookupRequest) (*Payment, error)
+	Refund(context.Context, *PaymentLookupRequest) (*Payment, error)
+	mustEmbedUnimplementedPaymentServiceServer()
+}
+
+// UnimplementedPaymentServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPaymentServiceServer struct{}
+
+func (UnimplementedPaymentServiceServer) Process(context.Context, *PaymentRequest) (*Payment, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Process not implemented")
+}
+func (UnimplementedPaymentServiceServer) Get(context.Context, *PaymentLookupRequest) (*Payment, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (UnimplementedPaymentServiceServer) Refund(context.Context, *PaymentLookupRequest) (*Payment, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Refund not implemented")
+}
+func (UnimplementedPaymentServiceServer) mustEmbedUnimplementedPaymentServiceServer() {}
+func (UnimplementedPaymentServiceServer) testEmbeddedByValue()                        {}
+
+// UnsafePaymentServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PaymentServiceServer will
+// result in compilation errors.
+type UnsafePaymentServiceServer interface {
+	mustEmbedUnimplementedPaymentServiceServer()
+}
+
+func RegisterPaymentServiceServer(s grpc.ServiceRegistrar, srv PaymentServiceServer) {
+	// If the following call pancis, it indicates UnimplementedPaymentServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PaymentService_ServiceDesc, srv)
+}
+
+func _PaymentService_Process_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentServiceServer).Process(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentService_Process_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentServiceServer).Process(ctx, req.(*PaymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentServiceServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentService_Get_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentServiceServer).Get(ctx, req.(*PaymentLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaymentService_Refund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaymentServiceServer).Refund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaymentService_Refund_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaymentServiceServer).Refund(ctx, req.(*PaymentLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PaymentService_ServiceDesc is the grpc.ServiceDesc for PaymentService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PaymentService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "booking.v1.PaymentService",
+	HandlerType: (*PaymentServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Process",
+			Handler:    _PaymentService_Process_Handler,
+		},
+		{
+			MethodName: "Get",
+			Handler:    _PaymentService_Get_Handler,
+		},
+		{
+			MethodName: "Refund",
+			Handler:    _PaymentService_Refund_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "api/booking/v1/platform.proto",
+}
+
+const (
+	NotificationService_Send_FullMethodName = "/booking.v1.NotificationService/Send"
+	NotificationService_List_FullMethodName = "/booking.v1.NotificationService/List"
+)
+
+// NotificationServiceClient is the client API for NotificationService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type NotificationServiceClient interface {
+	Send(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (*Notification, error)
+	List(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error)
+}
+
+type notificationServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNotificationServiceClient(cc grpc.ClientConnInterface) NotificationServiceClient {
+	return &notificationServiceClient{cc}
+}
+
+func (c *notificationServiceClient) Send(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (*Notification, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Notification)
+	err := c.cc.Invoke(ctx, NotificationService_Send_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) List(ctx context.Context, in *BookingRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNotificationsResponse)
+	err := c.cc.Invoke(ctx, NotificationService_List_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NotificationServiceServer is the server API for NotificationService service.
+// All implementations must embed UnimplementedNotificationServiceServer
+// for forward compatibility.
+type NotificationServiceServer interface {
+	Send(context.Context, *NotificationRequest) (*Notification, error)
+	List(context.Context, *BookingRequest) (*ListNotificationsResponse, error)
+	mustEmbedUnimplementedNotificationServiceServer()
+}
+
+// UnimplementedNotificationServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNotificationServiceServer struct{}
+
+func (UnimplementedNotificationServiceServer) Send(context.Context, *NotificationRequest) (*Notification, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
+}
+func (UnimplementedNotificationServiceServer) List(context.Context, *BookingRequest) (*ListNotificationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method List not implemented")
+}
+func (UnimplementedNotificationServiceServer) mustEmbedUnimplementedNotificationServiceServer() {}
+func (UnimplementedNotificationServiceServer) testEmbeddedByValue()                             {}
+
+// UnsafeNotificationServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NotificationServiceServer will
+// result in compilation errors.
+type UnsafeNotificationServiceServer interface {
+	mustEmbedUnimplementedNotificationServiceServer()
+}
+
+func RegisterNotificationServiceServer(s grpc.ServiceRegistrar, srv NotificationServiceServer) {
+	// If the following call pancis, it indicates UnimplementedNotificationServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NotificationService_ServiceDesc, srv)
+}
+
+func _NotificationService_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).Send(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_Send_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).Send(ctx, req.(*NotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BookingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).List(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_List_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).List(ctx, req.(*BookingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NotificationService_ServiceDesc is the grpc.ServiceDesc for NotificationService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NotificationService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "booking.v1.NotificationService",
+	HandlerType: (*NotificationServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Send",
+			Handler:    _NotificationService_Send_Handler,
+		},
+		{
+			MethodName: "List",
+			Handler:    _NotificationService_List_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

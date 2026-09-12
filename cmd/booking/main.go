@@ -29,11 +29,28 @@ func run() error {
 	if err != nil || ttl < time.Second || ttl > 24*time.Hour || ttl%time.Second != 0 {
 		return fmt.Errorf("BOOKING_TTL must be a whole number of seconds from 1s to 24h")
 	}
-	conn, err := platform.Connect(platform.Env("INVENTORY_ADDR", "localhost:50051"))
+	inventoryConn, err := platform.Connect(platform.Env("INVENTORY_ADDR", "localhost:50051"))
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	svc := booking.New(pb.NewInventoryServiceClient(conn), ttl)
-	return platform.ServeGRPC(ctx, platform.Env("GRPC_ADDR", "127.0.0.1:50052"), func(s *grpc.Server) { pb.RegisterBookingServiceServer(s, svc) }, func(ctx context.Context) error { return platform.CheckConnection(ctx, conn) })
+	defer inventoryConn.Close()
+	paymentConn, err := platform.Connect(platform.Env("PAYMENT_ADDR", "localhost:50053"))
+	if err != nil {
+		return err
+	}
+	defer paymentConn.Close()
+	notificationConn, err := platform.Connect(platform.Env("NOTIFICATION_ADDR", "localhost:50054"))
+	if err != nil {
+		return err
+	}
+	defer notificationConn.Close()
+	svc := booking.New(pb.NewInventoryServiceClient(inventoryConn), pb.NewPaymentServiceClient(paymentConn), pb.NewNotificationServiceClient(notificationConn), ttl)
+	return platform.ServeGRPC(ctx, platform.Env("GRPC_ADDR", "127.0.0.1:50052"), func(s *grpc.Server) { pb.RegisterBookingServiceServer(s, svc) }, func(ctx context.Context) error {
+		for _, conn := range []*grpc.ClientConn{inventoryConn, paymentConn, notificationConn} {
+			if err := platform.CheckConnection(ctx, conn); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

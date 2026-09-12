@@ -514,6 +514,366 @@ func (x *CheckoutRequest) GetPaymentResult() string {
 	return ""
 }
 
+type PaymentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BookingId     string                 `protobuf:"bytes,1,opt,name=booking_id,json=bookingId,proto3" json:"booking_id,omitempty"`
+	AmountMinor   int64                  `protobuf:"varint,2,opt,name=amount_minor,json=amountMinor,proto3" json:"amount_minor,omitempty"`
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	PaymentResult string                 `protobuf:"bytes,4,opt,name=payment_result,json=paymentResult,proto3" json:"payment_result,omitempty"` // success or fail; demo provider input
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaymentRequest) Reset() {
+	*x = PaymentRequest{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaymentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaymentRequest) ProtoMessage() {}
+
+func (x *PaymentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaymentRequest.ProtoReflect.Descriptor instead.
+func (*PaymentRequest) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PaymentRequest) GetBookingId() string {
+	if x != nil {
+		return x.BookingId
+	}
+	return ""
+}
+
+func (x *PaymentRequest) GetAmountMinor() int64 {
+	if x != nil {
+		return x.AmountMinor
+	}
+	return 0
+}
+
+func (x *PaymentRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *PaymentRequest) GetPaymentResult() string {
+	if x != nil {
+		return x.PaymentResult
+	}
+	return ""
+}
+
+type PaymentLookupRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BookingId     string                 `protobuf:"bytes,1,opt,name=booking_id,json=bookingId,proto3" json:"booking_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaymentLookupRequest) Reset() {
+	*x = PaymentLookupRequest{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaymentLookupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaymentLookupRequest) ProtoMessage() {}
+
+func (x *PaymentLookupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaymentLookupRequest.ProtoReflect.Descriptor instead.
+func (*PaymentLookupRequest) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PaymentLookupRequest) GetBookingId() string {
+	if x != nil {
+		return x.BookingId
+	}
+	return ""
+}
+
+type Payment struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BookingId     string                 `protobuf:"bytes,1,opt,name=booking_id,json=bookingId,proto3" json:"booking_id,omitempty"`
+	AmountMinor   int64                  `protobuf:"varint,2,opt,name=amount_minor,json=amountMinor,proto3" json:"amount_minor,omitempty"`
+	Currency      string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // SUCCEEDED, DECLINED, REFUNDED
+	ProcessedAt   string                 `protobuf:"bytes,5,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Payment) Reset() {
+	*x = Payment{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Payment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Payment) ProtoMessage() {}
+
+func (x *Payment) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Payment.ProtoReflect.Descriptor instead.
+func (*Payment) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *Payment) GetBookingId() string {
+	if x != nil {
+		return x.BookingId
+	}
+	return ""
+}
+
+func (x *Payment) GetAmountMinor() int64 {
+	if x != nil {
+		return x.AmountMinor
+	}
+	return 0
+}
+
+func (x *Payment) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *Payment) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Payment) GetProcessedAt() string {
+	if x != nil {
+		return x.ProcessedAt
+	}
+	return ""
+}
+
+type NotificationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BookingId     string                 `protobuf:"bytes,1,opt,name=booking_id,json=bookingId,proto3" json:"booking_id,omitempty"`
+	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"` // RESERVED, SOLD, CANCELLED
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NotificationRequest) Reset() {
+	*x = NotificationRequest{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NotificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NotificationRequest) ProtoMessage() {}
+
+func (x *NotificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NotificationRequest.ProtoReflect.Descriptor instead.
+func (*NotificationRequest) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *NotificationRequest) GetBookingId() string {
+	if x != nil {
+		return x.BookingId
+	}
+	return ""
+}
+
+func (x *NotificationRequest) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *NotificationRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type Notification struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BookingId     string                 `protobuf:"bytes,1,opt,name=booking_id,json=bookingId,proto3" json:"booking_id,omitempty"`
+	EventType     string                 `protobuf:"bytes,2,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Notification) Reset() {
+	*x = Notification{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Notification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Notification) ProtoMessage() {}
+
+func (x *Notification) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Notification.ProtoReflect.Descriptor instead.
+func (*Notification) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *Notification) GetBookingId() string {
+	if x != nil {
+		return x.BookingId
+	}
+	return ""
+}
+
+func (x *Notification) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *Notification) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *Notification) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ListNotificationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsResponse) Reset() {
+	*x = ListNotificationsResponse{}
+	mi := &file_api_booking_v1_platform_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsResponse) ProtoMessage() {}
+
+func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_booking_v1_platform_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsResponse.ProtoReflect.Descriptor instead.
+func (*ListNotificationsResponse) Descriptor() ([]byte, []int) {
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListNotificationsResponse) GetNotifications() []*Notification {
+	if x != nil {
+		return x.Notifications
+	}
+	return nil
+}
+
 type Booking struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -530,7 +890,7 @@ type Booking struct {
 
 func (x *Booking) Reset() {
 	*x = Booking{}
-	mi := &file_api_booking_v1_platform_proto_msgTypes[9]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -542,7 +902,7 @@ func (x *Booking) String() string {
 func (*Booking) ProtoMessage() {}
 
 func (x *Booking) ProtoReflect() protoreflect.Message {
-	mi := &file_api_booking_v1_platform_proto_msgTypes[9]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -555,7 +915,7 @@ func (x *Booking) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Booking.ProtoReflect.Descriptor instead.
 func (*Booking) Descriptor() ([]byte, []int) {
-	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{9}
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Booking) GetId() string {
@@ -624,7 +984,7 @@ type BookingHistoryEvent struct {
 
 func (x *BookingHistoryEvent) Reset() {
 	*x = BookingHistoryEvent{}
-	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -636,7 +996,7 @@ func (x *BookingHistoryEvent) String() string {
 func (*BookingHistoryEvent) ProtoMessage() {}
 
 func (x *BookingHistoryEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_booking_v1_platform_proto_msgTypes[10]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -649,7 +1009,7 @@ func (x *BookingHistoryEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookingHistoryEvent.ProtoReflect.Descriptor instead.
 func (*BookingHistoryEvent) Descriptor() ([]byte, []int) {
-	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{10}
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BookingHistoryEvent) GetStatus() string {
@@ -675,7 +1035,7 @@ type BookingHistoryResponse struct {
 
 func (x *BookingHistoryResponse) Reset() {
 	*x = BookingHistoryResponse{}
-	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -687,7 +1047,7 @@ func (x *BookingHistoryResponse) String() string {
 func (*BookingHistoryResponse) ProtoMessage() {}
 
 func (x *BookingHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_booking_v1_platform_proto_msgTypes[11]
+	mi := &file_api_booking_v1_platform_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -700,7 +1060,7 @@ func (x *BookingHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookingHistoryResponse.ProtoReflect.Descriptor instead.
 func (*BookingHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{11}
+	return file_api_booking_v1_platform_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BookingHistoryResponse) GetEvents() []*BookingHistoryEvent {
@@ -750,7 +1110,39 @@ const file_api_booking_v1_platform_proto_rawDesc = "" +
 	"\x0fCheckoutRequest\x12\x1d\n" +
 	"\n" +
 	"booking_id\x18\x01 \x01(\tR\tbookingId\x12%\n" +
-	"\x0epayment_result\x18\x02 \x01(\tR\rpaymentResult\"\xe0\x01\n" +
+	"\x0epayment_result\x18\x02 \x01(\tR\rpaymentResult\"\x95\x01\n" +
+	"\x0ePaymentRequest\x12\x1d\n" +
+	"\n" +
+	"booking_id\x18\x01 \x01(\tR\tbookingId\x12!\n" +
+	"\famount_minor\x18\x02 \x01(\x03R\vamountMinor\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12%\n" +
+	"\x0epayment_result\x18\x04 \x01(\tR\rpaymentResult\"5\n" +
+	"\x14PaymentLookupRequest\x12\x1d\n" +
+	"\n" +
+	"booking_id\x18\x01 \x01(\tR\tbookingId\"\xa2\x01\n" +
+	"\aPayment\x12\x1d\n" +
+	"\n" +
+	"booking_id\x18\x01 \x01(\tR\tbookingId\x12!\n" +
+	"\famount_minor\x18\x02 \x01(\x03R\vamountMinor\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12!\n" +
+	"\fprocessed_at\x18\x05 \x01(\tR\vprocessedAt\"m\n" +
+	"\x13NotificationRequest\x12\x1d\n" +
+	"\n" +
+	"booking_id\x18\x01 \x01(\tR\tbookingId\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x02 \x01(\tR\teventType\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\x85\x01\n" +
+	"\fNotification\x12\x1d\n" +
+	"\n" +
+	"booking_id\x18\x01 \x01(\tR\tbookingId\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x02 \x01(\tR\teventType\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\tR\tcreatedAt\"[\n" +
+	"\x19ListNotificationsResponse\x12>\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x18.booking.v1.NotificationR\rnotifications\"\xe0\x01\n" +
 	"\aBooking\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bevent_id\x18\x02 \x01(\x03R\aeventId\x12\x17\n" +
@@ -768,11 +1160,12 @@ const file_api_booking_v1_platform_proto_rawDesc = "" +
 	"\voccurred_at\x18\x02 \x01(\tR\n" +
 	"occurredAt\"Q\n" +
 	"\x16BookingHistoryResponse\x127\n" +
-	"\x06events\x18\x01 \x03(\v2\x1f.booking.v1.BookingHistoryEventR\x06events2\xf1\x03\n" +
+	"\x06events\x18\x01 \x03(\v2\x1f.booking.v1.BookingHistoryEventR\x06events2\xcb\x04\n" +
 	"\x10InventoryService\x12?\n" +
 	"\n" +
 	"ListEvents\x12\x11.booking.v1.Empty\x1a\x1e.booking.v1.ListEventsResponse\x12T\n" +
-	"\x0fGetAvailability\x12\x1f.booking.v1.AvailabilityRequest\x1a .booking.v1.AvailabilityResponse\x12:\n" +
+	"\x0fGetAvailability\x12\x1f.booking.v1.AvailabilityRequest\x1a .booking.v1.AvailabilityResponse\x12X\n" +
+	"\x11WatchAvailability\x12\x1f.booking.v1.AvailabilityRequest\x1a .booking.v1.AvailabilityResponse0\x01\x12:\n" +
 	"\aReserve\x12\x1a.booking.v1.ReserveRequest\x1a\x13.booking.v1.Booking\x12=\n" +
 	"\n" +
 	"GetBooking\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12S\n" +
@@ -784,7 +1177,14 @@ const file_api_booking_v1_platform_proto_rawDesc = "" +
 	"\x03Get\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12I\n" +
 	"\aHistory\x12\x1a.booking.v1.BookingRequest\x1a\".booking.v1.BookingHistoryResponse\x129\n" +
 	"\x06Cancel\x12\x1a.booking.v1.BookingRequest\x1a\x13.booking.v1.Booking\x12<\n" +
-	"\bCheckout\x12\x1b.booking.v1.CheckoutRequest\x1a\x13.booking.v1.BookingB8Z6github.com/tsostanov/SeatFlow/gen/booking/v1;bookingv1b\x06proto3"
+	"\bCheckout\x12\x1b.booking.v1.CheckoutRequest\x1a\x13.booking.v1.Booking2\xcb\x01\n" +
+	"\x0ePaymentService\x12:\n" +
+	"\aProcess\x12\x1a.booking.v1.PaymentRequest\x1a\x13.booking.v1.Payment\x12<\n" +
+	"\x03Get\x12 .booking.v1.PaymentLookupRequest\x1a\x13.booking.v1.Payment\x12?\n" +
+	"\x06Refund\x12 .booking.v1.PaymentLookupRequest\x1a\x13.booking.v1.Payment2\xa3\x01\n" +
+	"\x13NotificationService\x12A\n" +
+	"\x04Send\x12\x1f.booking.v1.NotificationRequest\x1a\x18.booking.v1.Notification\x12I\n" +
+	"\x04List\x12\x1a.booking.v1.BookingRequest\x1a%.booking.v1.ListNotificationsResponseB8Z6github.com/tsostanov/SeatFlow/gen/booking/v1;bookingv1b\x06proto3"
 
 var (
 	file_api_booking_v1_platform_proto_rawDescOnce sync.Once
@@ -798,53 +1198,72 @@ func file_api_booking_v1_platform_proto_rawDescGZIP() []byte {
 	return file_api_booking_v1_platform_proto_rawDescData
 }
 
-var file_api_booking_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_api_booking_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_api_booking_v1_platform_proto_goTypes = []any{
-	(*Empty)(nil),                  // 0: booking.v1.Empty
-	(*Event)(nil),                  // 1: booking.v1.Event
-	(*ListEventsResponse)(nil),     // 2: booking.v1.ListEventsResponse
-	(*AvailabilityRequest)(nil),    // 3: booking.v1.AvailabilityRequest
-	(*AvailabilityResponse)(nil),   // 4: booking.v1.AvailabilityResponse
-	(*CreateBookingRequest)(nil),   // 5: booking.v1.CreateBookingRequest
-	(*ReserveRequest)(nil),         // 6: booking.v1.ReserveRequest
-	(*BookingRequest)(nil),         // 7: booking.v1.BookingRequest
-	(*CheckoutRequest)(nil),        // 8: booking.v1.CheckoutRequest
-	(*Booking)(nil),                // 9: booking.v1.Booking
-	(*BookingHistoryEvent)(nil),    // 10: booking.v1.BookingHistoryEvent
-	(*BookingHistoryResponse)(nil), // 11: booking.v1.BookingHistoryResponse
+	(*Empty)(nil),                     // 0: booking.v1.Empty
+	(*Event)(nil),                     // 1: booking.v1.Event
+	(*ListEventsResponse)(nil),        // 2: booking.v1.ListEventsResponse
+	(*AvailabilityRequest)(nil),       // 3: booking.v1.AvailabilityRequest
+	(*AvailabilityResponse)(nil),      // 4: booking.v1.AvailabilityResponse
+	(*CreateBookingRequest)(nil),      // 5: booking.v1.CreateBookingRequest
+	(*ReserveRequest)(nil),            // 6: booking.v1.ReserveRequest
+	(*BookingRequest)(nil),            // 7: booking.v1.BookingRequest
+	(*CheckoutRequest)(nil),           // 8: booking.v1.CheckoutRequest
+	(*PaymentRequest)(nil),            // 9: booking.v1.PaymentRequest
+	(*PaymentLookupRequest)(nil),      // 10: booking.v1.PaymentLookupRequest
+	(*Payment)(nil),                   // 11: booking.v1.Payment
+	(*NotificationRequest)(nil),       // 12: booking.v1.NotificationRequest
+	(*Notification)(nil),              // 13: booking.v1.Notification
+	(*ListNotificationsResponse)(nil), // 14: booking.v1.ListNotificationsResponse
+	(*Booking)(nil),                   // 15: booking.v1.Booking
+	(*BookingHistoryEvent)(nil),       // 16: booking.v1.BookingHistoryEvent
+	(*BookingHistoryResponse)(nil),    // 17: booking.v1.BookingHistoryResponse
 }
 var file_api_booking_v1_platform_proto_depIdxs = []int32{
 	1,  // 0: booking.v1.ListEventsResponse.events:type_name -> booking.v1.Event
-	10, // 1: booking.v1.BookingHistoryResponse.events:type_name -> booking.v1.BookingHistoryEvent
-	0,  // 2: booking.v1.InventoryService.ListEvents:input_type -> booking.v1.Empty
-	3,  // 3: booking.v1.InventoryService.GetAvailability:input_type -> booking.v1.AvailabilityRequest
-	6,  // 4: booking.v1.InventoryService.Reserve:input_type -> booking.v1.ReserveRequest
-	7,  // 5: booking.v1.InventoryService.GetBooking:input_type -> booking.v1.BookingRequest
-	7,  // 6: booking.v1.InventoryService.GetBookingHistory:input_type -> booking.v1.BookingRequest
-	7,  // 7: booking.v1.InventoryService.Release:input_type -> booking.v1.BookingRequest
-	7,  // 8: booking.v1.InventoryService.Confirm:input_type -> booking.v1.BookingRequest
-	5,  // 9: booking.v1.BookingService.Create:input_type -> booking.v1.CreateBookingRequest
-	7,  // 10: booking.v1.BookingService.Get:input_type -> booking.v1.BookingRequest
-	7,  // 11: booking.v1.BookingService.History:input_type -> booking.v1.BookingRequest
-	7,  // 12: booking.v1.BookingService.Cancel:input_type -> booking.v1.BookingRequest
-	8,  // 13: booking.v1.BookingService.Checkout:input_type -> booking.v1.CheckoutRequest
-	2,  // 14: booking.v1.InventoryService.ListEvents:output_type -> booking.v1.ListEventsResponse
-	4,  // 15: booking.v1.InventoryService.GetAvailability:output_type -> booking.v1.AvailabilityResponse
-	9,  // 16: booking.v1.InventoryService.Reserve:output_type -> booking.v1.Booking
-	9,  // 17: booking.v1.InventoryService.GetBooking:output_type -> booking.v1.Booking
-	11, // 18: booking.v1.InventoryService.GetBookingHistory:output_type -> booking.v1.BookingHistoryResponse
-	9,  // 19: booking.v1.InventoryService.Release:output_type -> booking.v1.Booking
-	9,  // 20: booking.v1.InventoryService.Confirm:output_type -> booking.v1.Booking
-	9,  // 21: booking.v1.BookingService.Create:output_type -> booking.v1.Booking
-	9,  // 22: booking.v1.BookingService.Get:output_type -> booking.v1.Booking
-	11, // 23: booking.v1.BookingService.History:output_type -> booking.v1.BookingHistoryResponse
-	9,  // 24: booking.v1.BookingService.Cancel:output_type -> booking.v1.Booking
-	9,  // 25: booking.v1.BookingService.Checkout:output_type -> booking.v1.Booking
-	14, // [14:26] is the sub-list for method output_type
-	2,  // [2:14] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	13, // 1: booking.v1.ListNotificationsResponse.notifications:type_name -> booking.v1.Notification
+	16, // 2: booking.v1.BookingHistoryResponse.events:type_name -> booking.v1.BookingHistoryEvent
+	0,  // 3: booking.v1.InventoryService.ListEvents:input_type -> booking.v1.Empty
+	3,  // 4: booking.v1.InventoryService.GetAvailability:input_type -> booking.v1.AvailabilityRequest
+	3,  // 5: booking.v1.InventoryService.WatchAvailability:input_type -> booking.v1.AvailabilityRequest
+	6,  // 6: booking.v1.InventoryService.Reserve:input_type -> booking.v1.ReserveRequest
+	7,  // 7: booking.v1.InventoryService.GetBooking:input_type -> booking.v1.BookingRequest
+	7,  // 8: booking.v1.InventoryService.GetBookingHistory:input_type -> booking.v1.BookingRequest
+	7,  // 9: booking.v1.InventoryService.Release:input_type -> booking.v1.BookingRequest
+	7,  // 10: booking.v1.InventoryService.Confirm:input_type -> booking.v1.BookingRequest
+	5,  // 11: booking.v1.BookingService.Create:input_type -> booking.v1.CreateBookingRequest
+	7,  // 12: booking.v1.BookingService.Get:input_type -> booking.v1.BookingRequest
+	7,  // 13: booking.v1.BookingService.History:input_type -> booking.v1.BookingRequest
+	7,  // 14: booking.v1.BookingService.Cancel:input_type -> booking.v1.BookingRequest
+	8,  // 15: booking.v1.BookingService.Checkout:input_type -> booking.v1.CheckoutRequest
+	9,  // 16: booking.v1.PaymentService.Process:input_type -> booking.v1.PaymentRequest
+	10, // 17: booking.v1.PaymentService.Get:input_type -> booking.v1.PaymentLookupRequest
+	10, // 18: booking.v1.PaymentService.Refund:input_type -> booking.v1.PaymentLookupRequest
+	12, // 19: booking.v1.NotificationService.Send:input_type -> booking.v1.NotificationRequest
+	7,  // 20: booking.v1.NotificationService.List:input_type -> booking.v1.BookingRequest
+	2,  // 21: booking.v1.InventoryService.ListEvents:output_type -> booking.v1.ListEventsResponse
+	4,  // 22: booking.v1.InventoryService.GetAvailability:output_type -> booking.v1.AvailabilityResponse
+	4,  // 23: booking.v1.InventoryService.WatchAvailability:output_type -> booking.v1.AvailabilityResponse
+	15, // 24: booking.v1.InventoryService.Reserve:output_type -> booking.v1.Booking
+	15, // 25: booking.v1.InventoryService.GetBooking:output_type -> booking.v1.Booking
+	17, // 26: booking.v1.InventoryService.GetBookingHistory:output_type -> booking.v1.BookingHistoryResponse
+	15, // 27: booking.v1.InventoryService.Release:output_type -> booking.v1.Booking
+	15, // 28: booking.v1.InventoryService.Confirm:output_type -> booking.v1.Booking
+	15, // 29: booking.v1.BookingService.Create:output_type -> booking.v1.Booking
+	15, // 30: booking.v1.BookingService.Get:output_type -> booking.v1.Booking
+	17, // 31: booking.v1.BookingService.History:output_type -> booking.v1.BookingHistoryResponse
+	15, // 32: booking.v1.BookingService.Cancel:output_type -> booking.v1.Booking
+	15, // 33: booking.v1.BookingService.Checkout:output_type -> booking.v1.Booking
+	11, // 34: booking.v1.PaymentService.Process:output_type -> booking.v1.Payment
+	11, // 35: booking.v1.PaymentService.Get:output_type -> booking.v1.Payment
+	11, // 36: booking.v1.PaymentService.Refund:output_type -> booking.v1.Payment
+	13, // 37: booking.v1.NotificationService.Send:output_type -> booking.v1.Notification
+	14, // 38: booking.v1.NotificationService.List:output_type -> booking.v1.ListNotificationsResponse
+	21, // [21:39] is the sub-list for method output_type
+	3,  // [3:21] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_api_booking_v1_platform_proto_init() }
@@ -858,9 +1277,9 @@ func file_api_booking_v1_platform_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_booking_v1_platform_proto_rawDesc), len(file_api_booking_v1_platform_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   18,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   4,
 		},
 		GoTypes:           file_api_booking_v1_platform_proto_goTypes,
 		DependencyIndexes: file_api_booking_v1_platform_proto_depIdxs,

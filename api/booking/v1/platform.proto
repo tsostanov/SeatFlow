@@ -6,6 +6,7 @@ option go_package = "github.com/tsostanov/SeatFlow/gen/booking/v1;bookingv1";
 service InventoryService {
   rpc ListEvents(Empty) returns (ListEventsResponse);
   rpc GetAvailability(AvailabilityRequest) returns (AvailabilityResponse);
+  rpc WatchAvailability(AvailabilityRequest) returns (stream AvailabilityResponse);
   rpc Reserve(ReserveRequest) returns (Booking);
   rpc GetBooking(BookingRequest) returns (Booking);
   rpc GetBookingHistory(BookingRequest) returns (BookingHistoryResponse);
@@ -20,6 +21,17 @@ service BookingService {
   rpc Cancel(BookingRequest) returns (Booking);
   // Demo checkout only: no money is charged.
   rpc Checkout(CheckoutRequest) returns (Booking);
+}
+
+service PaymentService {
+  rpc Process(PaymentRequest) returns (Payment);
+  rpc Get(PaymentLookupRequest) returns (Payment);
+  rpc Refund(PaymentLookupRequest) returns (Payment);
+}
+
+service NotificationService {
+  rpc Send(NotificationRequest) returns (Notification);
+  rpc List(BookingRequest) returns (ListNotificationsResponse);
 }
 
 message Empty {}
@@ -55,6 +67,32 @@ message CheckoutRequest {
   string booking_id = 1;
   string payment_result = 2; // success or fail
 }
+message PaymentRequest {
+  string booking_id = 1;
+  int64 amount_minor = 2;
+  string currency = 3;
+  string payment_result = 4; // success or fail; demo provider input
+}
+message PaymentLookupRequest { string booking_id = 1; }
+message Payment {
+  string booking_id = 1;
+  int64 amount_minor = 2;
+  string currency = 3;
+  string status = 4; // SUCCEEDED, DECLINED, REFUNDED
+  string processed_at = 5;
+}
+message NotificationRequest {
+  string booking_id = 1;
+  string event_type = 2; // RESERVED, SOLD, CANCELLED
+  string message = 3;
+}
+message Notification {
+  string booking_id = 1;
+  string event_type = 2;
+  string message = 3;
+  string created_at = 4;
+}
+message ListNotificationsResponse { repeated Notification notifications = 1; }
 message Booking {
   string id = 1;
   int64 event_id = 2;
