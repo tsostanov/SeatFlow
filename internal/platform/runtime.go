@@ -25,6 +25,7 @@ func Env(name, fallback string) string {
 func Connect(address string) (*grpc.ClientConn, error) {
 	return grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoke grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+			ctx = outgoingRequestContext(ctx)
 			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 			return invoke(ctx, method, req, reply, cc, opts...)
@@ -66,11 +67,12 @@ func ServeGRPC(ctx context.Context, address string, register func(*grpc.Server),
 		return err
 	}
 	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		ctx, requestID := incomingRequestContext(ctx)
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		start := time.Now()
 		result, err := handler(ctx, req)
-		slog.Info("grpc request", "method", info.FullMethod, "code", status.Code(err).String(), "duration", time.Since(start))
+		slog.InfoContext(ctx, "grpc request", "request_id", requestID, "method", info.FullMethod, "code", status.Code(err).String(), "duration", time.Since(start))
 		return result, err
 	}))
 	register(server)

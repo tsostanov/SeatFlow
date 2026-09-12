@@ -2,8 +2,10 @@ package gateway
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -11,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -98,6 +101,40 @@ func TestMetricsUseRoutePatternsAndExcludeScrapes(t *testing.T) {
 	}
 	if got := w.Header().Get("Content-Type"); got != "text/plain; version=0.0.4; charset=utf-8" {
 		t.Fatalf("content type=%q", got)
+	}
+}
+
+func TestRequestIDIsValidatedAndLogged(t *testing.T) {
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	handler := New(nil, nil, func(context.Context) error { return nil })
+	validID := "C73A33C3-8DB7-4AC4-80D1-10A04705DA7E"
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	r.Header.Set("X-Request-ID", validID)
+	handler.ServeHTTP(w, r)
+	if got := w.Header().Get("X-Request-ID"); got != strings.ToLower(validID) {
+		t.Fatalf("request ID=%q", got)
+	}
+
+	var entry map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &entry); err != nil {
+		t.Fatal(err)
+	}
+	if entry["msg"] != "http request" || entry["request_id"] != strings.ToLower(validID) ||
+		entry["method"] != "GET" || entry["route"] != "/healthz" || entry["status"] != float64(200) {
+		t.Fatalf("unexpected access log: %v", entry)
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	r.Header.Set("X-Request-ID", "not-a-safe-request-id\nforged")
+	handler.ServeHTTP(w, r)
+	if _, err := uuid.Parse(w.Header().Get("X-Request-ID")); err != nil {
+		t.Fatalf("generated request ID is invalid: %q", w.Header().Get("X-Request-ID"))
 	}
 }
 

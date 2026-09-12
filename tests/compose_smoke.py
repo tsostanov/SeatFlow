@@ -10,10 +10,12 @@ import uuid
 BASE = os.environ.get("SMOKE_BASE_URL", "http://localhost:8080")
 
 
-def request(method, path, body=None, key=None, expected=200):
+def request(method, path, body=None, key=None, expected=200, request_id=None):
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Idempotency-Key"] = key
+    if request_id:
+        headers["X-Request-ID"] = request_id
     req = urllib.request.Request(
         BASE + path, method=method, headers=headers,
         data=json.dumps(body).encode() if body is not None else None,
@@ -25,10 +27,14 @@ def request(method, path, body=None, key=None, expected=200):
     with response:
         raw = response.read()
         assert response.status == expected, (method, path, response.status, raw)
+        response_id = response.headers.get("X-Request-ID")
+        assert response_id and str(uuid.UUID(response_id)) == response_id
+        if request_id:
+            assert response_id == request_id
         return json.loads(raw) if "application/json" in response.headers.get("Content-Type", "") else raw
 
 
-request("GET", "/readyz")
+request("GET", "/readyz", request_id=str(uuid.uuid4()))
 assert b"SeatFlow" in request("GET", "/")
 assert b"BookingSession" in request("GET", "/app.js")
 assert b"recommendSeat" in request("GET", "/seat-recommendation.mjs")
@@ -69,4 +75,4 @@ assert b'route="POST /api/bookings"' not in metrics
 assert b'route="/api/bookings"' in metrics
 assert b"seatflow_http_request_duration_seconds_bucket" in metrics
 assert b"seatflow_sse_connections_active" in metrics
-print("PASS: Compose readiness, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")
+print("PASS: Compose readiness, request IDs, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")

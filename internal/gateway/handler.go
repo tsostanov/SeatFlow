@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	pb "github.com/tsostanov/SeatFlow/gen/booking/v1"
+	"github.com/tsostanov/SeatFlow/internal/platform"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -72,7 +74,9 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		observed := &statusResponseWriter{ResponseWriter: w}
 		started := time.Now()
 		h.seatStream(observed, r)
-		h.metrics.observe(r.Method, "/api/events/{event}/seats/stream", observed.statusCode(), time.Since(started))
+		duration := time.Since(started)
+		h.metrics.observe(r.Method, "/api/events/{event}/seats/stream", observed.statusCode(), duration)
+		logHTTPRequest(r.Context(), r.Method, "/api/events/{event}/seats/stream", observed.statusCode(), duration)
 	})
 	root.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -81,22 +85,36 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		observed := &statusResponseWriter{ResponseWriter: w}
 		started := time.Now()
 		mux.ServeHTTP(observed, request)
-		if request.Pattern != "GET /metrics" {
-			route := request.Pattern
-			if _, path, found := strings.Cut(route, " "); found {
-				route = path
-			}
-			if route == "" {
-				route = "unmatched"
-			}
-			h.metrics.observe(r.Method, route, observed.statusCode(), time.Since(started))
+		duration := time.Since(started)
+		route := request.Pattern
+		if _, path, found := strings.Cut(route, " "); found {
+			route = path
 		}
+		if route == "" {
+			route = "unmatched"
+		}
+		if request.Pattern != "GET /metrics" {
+			h.metrics.observe(r.Method, route, observed.statusCode(), duration)
+		}
+		logHTTPRequest(request.Context(), r.Method, route, observed.statusCode(), duration)
 	}))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, requestID := platform.ContextWithRequestID(r.Context(), r.Header.Get(platform.RequestIDHeader))
+		w.Header().Set(platform.RequestIDHeader, requestID)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Cache-Control", "no-store")
-		root.ServeHTTP(w, r)
+		root.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func logHTTPRequest(ctx context.Context, method, route string, statusCode int, duration time.Duration) {
+	slog.InfoContext(ctx, "http request",
+		"request_id", platform.RequestID(ctx),
+		"method", method,
+		"route", route,
+		"status", statusCode,
+		"duration", duration,
+	)
 }
 
 func respond(w http.ResponseWriter, message proto.Message, err error) {
