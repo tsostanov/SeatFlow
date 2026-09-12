@@ -36,11 +36,12 @@ func New(booking pb.BookingServiceClient, inventory pb.InventoryServiceClient, r
 		w.Write(data)
 	})
 	for name, contentType := range map[string]string{
-		"app.js":              "text/javascript; charset=utf-8",
-		"booking-session.mjs": "text/javascript; charset=utf-8",
-		"ticket-calendar.mjs": "text/javascript; charset=utf-8",
-		"ticket-share.mjs":    "text/javascript; charset=utf-8",
-		"styles.css":          "text/css; charset=utf-8",
+		"app.js":                  "text/javascript; charset=utf-8",
+		"booking-session.mjs":     "text/javascript; charset=utf-8",
+		"seat-recommendation.mjs": "text/javascript; charset=utf-8",
+		"ticket-calendar.mjs":     "text/javascript; charset=utf-8",
+		"ticket-share.mjs":        "text/javascript; charset=utf-8",
+		"styles.css":              "text/css; charset=utf-8",
 	} {
 		mux.HandleFunc("GET /"+name, func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", contentType)

@@ -37,6 +37,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 		{"/", "text/html", "SeatFlow"},
 		{"/app.js", "text/javascript", "BookingSession"},
 		{"/booking-session.mjs", "text/javascript", "seatflow-session-v1"},
+		{"/seat-recommendation.mjs", "text/javascript", "recommendSeat"},
 		{"/ticket-calendar.mjs", "text/javascript", "BEGIN:VCALENDAR"},
 		{"/ticket-share.mjs", "text/javascript", "createTicketShare"},
 		{"/styles.css", "text/css", "focus-visible"},

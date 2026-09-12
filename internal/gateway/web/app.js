@@ -1,4 +1,5 @@
 import { BookingSession } from "/booking-session.mjs";
+import { recommendSeat } from "/seat-recommendation.mjs";
 import { createTicketCalendar } from "/ticket-calendar.mjs";
 import { createTicketShare, ticketIDFromURL } from "/ticket-share.mjs";
 
@@ -12,6 +13,7 @@ const state = {
   epoch: 0,
   seatEvent: null,
   available: new Set(),
+  recommended: null,
   seatStream: null,
   streamEvent: null,
   history: null,
@@ -134,6 +136,10 @@ function controls() {
     seat.disabled = locked || active || !state.available.has(seat.dataset.id);
     seat.classList.toggle("selected", state.selected === seat.dataset.id);
     seat.classList.toggle(
+      "recommended",
+      state.recommended === seat.dataset.id,
+    );
+    seat.classList.toggle(
       "own",
       state.current?.event_id === state.seatEvent &&
         state.current?.seat_id === seat.dataset.id &&
@@ -150,11 +156,14 @@ function controls() {
     active ||
     !state.selected ||
     !state.available.has(state.selected);
+  $("recommend").disabled = locked || active || !state.recommended;
   $("reserve").textContent = state.busy ? "Подождите…" : "Забронировать";
   $("selection").textContent = active
     ? "Сначала завершите текущую бронь"
     : state.selected
-      ? `Место ${state.selected}`
+      ? `Место ${state.selected}${
+          state.selected === state.recommended ? " · рекомендуем" : ""
+        }`
       : "Выберите место на схеме";
   for (const id of ["pay", "cancel"]) {
     $(id).hidden = !active;
@@ -227,6 +236,10 @@ function reconcileSeats(eventID, data) {
   }
   state.seatEvent = eventID;
   state.available = new Set(data.available_seat_ids);
+  state.recommended = recommendSeat(
+    data.seat_ids,
+    data.available_seat_ids,
+  );
   const ids = new Set(data.seat_ids);
   for (const child of [...area.children])
     if (!ids.has(child.dataset.id)) child.remove();
@@ -247,8 +260,12 @@ function reconcileSeats(eventID, data) {
       area.insertBefore(button, area.children[index] || null);
     button.setAttribute(
       "aria-label",
-      `Место ${id}, ${state.available.has(id) ? "свободно" : "занято"}`,
+      `Место ${id}, ${state.available.has(id) ? "свободно" : "занято"}${
+        state.recommended === id ? ", рекомендуем" : ""
+      }`,
     );
+    button.title =
+      state.recommended === id ? "Рекомендуем: ближе к сцене и центру" : "";
   });
   if (!state.available.has(state.selected)) state.selected = null;
   $("availability").textContent = data.seat_ids.length
@@ -441,6 +458,7 @@ $("event").onchange = () =>
   action(async () => {
     stopSeatStream();
     state.selected = null;
+    state.recommended = null;
     eventDetails();
     // Old seats must not remain selectable if the new event fails to load.
     state.available.clear();
@@ -448,6 +466,15 @@ $("event").onchange = () =>
     controls();
     await loadSeats();
   });
+$("recommend").onclick = () => {
+  if (!state.recommended || !state.available.has(state.recommended)) return;
+  state.selected = state.recommended;
+  controls();
+  const seat = [...$("seats").children].find(
+    (button) => button.dataset.id === state.recommended,
+  );
+  seat?.focus();
+};
 $("reserve").onclick = () =>
   action(async () => {
     try {

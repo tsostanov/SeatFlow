@@ -73,9 +73,15 @@
             role="group"
             aria-label="Выбор места"
           ></div>
-          <p id="availability" class="muted">Получаем доступные места…</p>
+          <div class="availability-row">
+            <p id="availability" class="muted">Получаем доступные места…</p>
+            <button id="recommend" class="recommend-button" disabled>
+              <span aria-hidden="true">✦</span> Подобрать лучшее
+            </button>
+          </div>
           <div class="legend" aria-label="Обозначения мест">
             <span><i class="free"></i>Свободно</span
+            ><span><i class="best"></i>Рекомендуем</span
             ><span><i class="chosen"></i>Выбрано</span
             ><span><i class="taken"></i>Занято</span>
           </div>
