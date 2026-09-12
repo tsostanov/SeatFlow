@@ -3,7 +3,7 @@ Push-Location (Join-Path $PSScriptRoot '..')
 $previousBin = $env:GOBIN
 try {
     $env:GOBIN = Join-Path (Get-Location) '.local\bin'
-    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.9
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
     if ($LASTEXITCODE -ne 0) { throw 'protoc-gen-go installation failed' }
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
     if ($LASTEXITCODE -ne 0) { throw 'protoc-gen-go-grpc installation failed' }

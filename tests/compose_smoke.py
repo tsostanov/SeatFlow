@@ -31,6 +31,9 @@ def request(method, path, body=None, key=None, expected=200, request_id=None):
         assert response_id and str(uuid.UUID(response_id)) == response_id
         if request_id:
             assert response_id == request_id
+        assert "default-src 'self'" in response.headers.get("Content-Security-Policy", "")
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert response.headers.get("X-Frame-Options") == "DENY"
         return json.loads(raw) if "application/json" in response.headers.get("Content-Type", "") else raw
 
 
@@ -75,4 +78,4 @@ assert b'route="POST /api/bookings"' not in metrics
 assert b'route="/api/bookings"' in metrics
 assert b"seatflow_http_request_duration_seconds_bucket" in metrics
 assert b"seatflow_sse_connections_active" in metrics
-print("PASS: Compose readiness, request IDs, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")
+print("PASS: Compose readiness, security headers, request IDs, assets, metrics, idempotency, conflict, history, decline, cancel, checkout, expiry")

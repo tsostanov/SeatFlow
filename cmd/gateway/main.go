@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -41,7 +42,18 @@ func run() error {
 		}
 		return platform.CheckConnection(ctx, booking)
 	})
-	server := &http.Server{Addr: platform.Env("HTTP_ADDR", "127.0.0.1:8080"), Handler: handler, ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second}
+	server := &http.Server{
+		Addr:              platform.Env("HTTP_ADDR", "127.0.0.1:8080"),
+		Handler:           handler,
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
+	}
 	done := make(chan struct{})
 	defer close(done)
 	go func() {

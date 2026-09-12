@@ -1,5 +1,7 @@
 name: Go checks
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,6 +30,7 @@ jobs:
       - run: node --test tests/booking-session.test.mjs tests/seat-recommendation.test.mjs tests/ticket-calendar.test.mjs tests/ticket-share.test.mjs
       - run: test -z "$(gofmt -l cmd internal tests)"
       - run: go vet ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
       - run: go test -race ./...
       - run: go test -race -tags=integration ./tests/... -count=1 -v
         env:

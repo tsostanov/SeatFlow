@@ -55,6 +55,26 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	handler := New(nil, nil, func(context.Context) error { return nil })
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	for name, want := range map[string]string{
+		"Content-Security-Policy":      "default-src 'self'; base-uri 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'",
+		"Cross-Origin-Opener-Policy":   "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Permissions-Policy":           "camera=(), geolocation=(), microphone=(), payment=()",
+		"Referrer-Policy":              "no-referrer",
+		"X-Content-Type-Options":       "nosniff",
+		"X-Frame-Options":              "DENY",
+	} {
+		if got := w.Header().Get(name); got != want {
+			t.Errorf("%s=%q want=%q", name, got, want)
+		}
+	}
+}
+
 func TestDecodeRejectsAmbiguousOrOversizedBodies(t *testing.T) {
 	for _, body := range []string{`{"seat":1,"extra":2}`, `{"seat":1} {"seat":2}`, `{"seat":"one"}`, `{"seat":`, strings.Repeat(" ", 4097) + `{"seat":1}`} {
 		var target struct {
